@@ -68,9 +68,10 @@ class neuralnetwork:
     def back_propagate(self, output_errors):
         """
         Back Propagate Error Through the Neural Net
-        Return Partial Derivatives or mean of partial drivatives
         """
         # check shape
+
+        # Return Partial Derivatives or mean of partial drivatives
 
         pass
 
@@ -96,7 +97,12 @@ class neuralnetwork:
 
     def get_nn_vector(self):
         """ return weights and biases as a vectr """
-        pass
+        # creates [m x 1] vector [w1[:] b1[:] w2[:] b2[:] ... wn[:] bn[:]]
+        nn_vec = np.array([]).reshape(-1, 1)
+        for i_weights, i_biases in zip(self.weights, self.biases):
+            nn_vec = np.vstack((nn_vec, i_weights.reshape(-1, 1)))
+            nn_vec = np.vstack((nn_vec, i_biases.reshape(-1, 1)))
+        return nn_vec
 
     def set_nn_vector(self, nn_vector):
         """ set the weights and biases based on the input nn_vector"""
