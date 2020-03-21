@@ -1,5 +1,6 @@
 # %%
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class neuralnetwork:
@@ -94,8 +95,8 @@ class neuralnetwork:
             return np.random.rand(num_row, num_col) * scalar
         elif method == "randn":
             return np.random.randn(num_row, num_col) * scalar
-        elif method == "randn":
-            return np.random.randn(num_row, num_col) * scalar
+        elif method == "zeros":
+            return np.zeros((num_row, num_col))
         elif method == "randpm":
             return (2 * np.random.rand(num_row, num_col) - 1) * scalar
         else:
@@ -103,7 +104,7 @@ class neuralnetwork:
             raise ValueError("Unknown method ('rand','randn','randpm','zeros')")
 
     def feed_forward(self, input_data):
-        """ Feed forward the neural network """
+        """ Feed forward through the neural network """
         # check shape
         input_data = self.check_input(input_data)
 
@@ -118,34 +119,99 @@ class neuralnetwork:
 
         return activation
 
-    def back_propagate(self, output_errors):
-        """  Back Propagate Error Through the Neural Net """
+    def feed_forward_full(self, input_data):
+        """ Feed forward through the neural network recording all data """
         # check shape
-        self.check_output_shape(output_errors)
+        input_data = self.check_input(input_data)
 
-        # Return Partial Derivatives or mean of partial drivatives
+        # feed forward
+        #   f(weights*activation + bias)
+        #   f([nxm]*[mx1] + [nx1])
+        activation = [input_data.copy()]
+        dadz = []
+        for weight, bias, fun in zip(
+            self.weights, self.biases, self.activation_functions
+        ):
+            z = weight.dot(activation[-1]) + bias
+            dadz.append(fun(z, True))
+            activation.append(fun(z))
 
-        pass
+        return activation, dadz
+
+    def back_propagate(self, prediction_error, activation, all_dadz):
+        """  Back Propagate Error Through the Neural Net """
+        dC_da = 2 * prediction_error
+
+        dw_all = []
+        db_all = []
+
+        num_observations = activation[0].shape[1]
+        for w, b, a, dadz in zip(
+            reversed(self.weights),
+            reversed(self.biases),
+            reversed(activation[0:-1]),
+            reversed(all_dadz),
+        ):
+            dC_dw = np.dot(dadz * dC_da, a.T) / num_observations
+            dC_db = 1.0 * dadz * dC_da
+            dC_da = w.T.dot(dadz * dC_da)
+
+            # take average of gradients
+            dw_all.append(dC_dw)
+            db_all.append(np.mean(dC_db, axis=1).reshape(-1, 1))
+
+        # Return mean of partial derivatives
+        dw_all.reverse()
+        db_all.reverse()
+        return dw_all, db_all
 
     def train(
         self,
         input_data,
         output_data,
         num_iter=10000,
-        num_costs_to_return=100,
+        learning_rate=0.1,
         do_print_status=True,
-        num_subsample_inputs=0,
+        num_subsample_inputs=None,
+        rand_seed=1,
     ):
         """ Train the neural network weights and biases"""
         # check shapes
-        # loop
-        # forward prop
-        # calculate errors
-        # if cost_calc then compute total cost
-        # back prop errors
-        # update weights/biases
+        output_data = self.check_output(output_data)
+        input_data = self.check_input(input_data)
+        n_observations = input_data.shape[1]
 
-        pass
+        # set random seed
+        if num_subsample_inputs is not None:
+            np.random.seed(rand_seed)
+
+        # loop
+        mean_cost = np.zeros((num_iter, 1))
+        for i in range(num_iter):
+            # get a subset of the data to train on
+            if num_subsample_inputs is not None:
+                ind = np.random.default_rng().choice(
+                    n_observations, size=num_subsample_inputs, replace=False
+                )
+                training_inputs = input_data[:, ind].reshape(self.num_input, -1)
+                training_outputs = output_data[:, ind].reshape(self.num_output, -1)
+            else:
+                training_inputs = input_data
+                training_outputs = output_data
+            # forward prop
+            activation, dadz = self.feed_forward_full(training_inputs)
+
+            # compute error
+            prediction_error = activation[-1] - training_outputs
+            # compute total cost for stats
+            mean_cost[i] = np.mean(prediction_error ** 2)
+            # backpropogate to get partial derivatives
+            dCdw, dCdb = self.back_propagate(prediction_error, activation, dadz)
+            # update weights/biases
+            for dw, db, w, b in zip(dCdw, dCdb, self.weights, self.biases):
+                w -= dw * learning_rate
+                # b -= db * learning_rate
+        return mean_cost
 
     def get_function_handles(self, function_names):
         """ returns list of function handles for each layer"""
@@ -221,10 +287,18 @@ class neuralnetwork:
 
         return input_data
 
-    def check_output_shape(self, output_data):
+    def check_output(self, output_data):
         """ throw error if shape of output_data is wrong"""
-        if np.array(output_data).shape[0] != self.num_output:
-            raise ValueError(f"Input data Needs to be ({self.num_input} x N)")
+        output_data = np.array(output_data)
+        if len(output_data.shape) == 1:
+            output_data = output_data.reshape(self.num_output, -1)
+
+        if output_data.shape[0] != self.num_output:
+            raise ValueError(
+                f"output data [{output_data.shape}] =/= [{self.num_output} x N]"
+            )
+
+        return output_data
 
     def check_nn_structure(self):
         """ throw error if shape of weights or biases are wrong"""
@@ -318,8 +392,6 @@ def softmax(x, fun, derivative=False):
     if derivative:
         return fun(x, True)
     else:
-        print(fun(x))
-        print(np.sum(fun(x)))
         return fun(x) / np.sum(fun(x), axis=0)
 
 
@@ -358,34 +430,26 @@ def test_ff():
 if __name__ == "__main__":
     test_ff()
 
-    myNN1 = neuralnetwork(
-        2,
+    myNN = neuralnetwork(
         3,
-        [10, 10, 10],
-        output_softmax=True,
-        activation_function_names=["relu", "sigmoid", "tanh", "sigmoid"],
-        rand_seed=14,
-        rand_weights_method="randpm",
-        rand_weights_scalar=0.25,
-        rand_biases_method="randn",
-        rand_biases_scalar=1,
-    )
-    myNN2 = neuralnetwork(
-        2,
-        3,
-        [10, 10, 10],
+        1,
+        [4],
         output_softmax=False,
-        activation_function_names=["relu", "sigmoid", "tanh", "sigmoid"],
-        rand_seed=14,
         rand_weights_method="randpm",
-        rand_weights_scalar=0.25,
-        rand_biases_method="randn",
-        rand_biases_scalar=1,
+        rand_biases_method="zeros",
+        activation_function_names=["relu", "sigmoid"],
     )
 
-    mydata = np.array([-2, 3]).reshape(2, 1)
-    y1 = myNN1.feed_forward(mydata)
-    y2 = myNN2.feed_forward([[-2, -2], [3, 3]])
+    input_data = np.array([[0, 1, 1, 0], [0, 1, 0, 1], [1, 1, 1, 1]])
+    output_data = np.array([0, 1, 1, 0])
 
-    print(y1)
-    print(y2)
+    cost = myNN.train(
+        input_data, output_data, 1500, num_subsample_inputs=2, learning_rate=0.1
+    )
+
+    plt.plot(cost)
+    plt.show()
+
+    data_est = myNN.feed_forward(input_data)
+    print(f"Data Estimate: {data_est}")
+    print(f"Data Truth   : {output_data}")
