@@ -1,6 +1,7 @@
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 
 class neuralnetwork:
@@ -200,7 +201,6 @@ class neuralnetwork:
                 training_outputs = output_data
             # forward prop
             activation, dadz = self.feed_forward_full(training_inputs)
-
             # compute error
             prediction_error = activation[-1] - training_outputs
             # compute total cost for stats
@@ -210,7 +210,7 @@ class neuralnetwork:
             # update weights/biases
             for dw, db, w, b in zip(dCdw, dCdb, self.weights, self.biases):
                 w -= dw * learning_rate
-                # b -= db * learning_rate
+                b -= db * learning_rate
         return mean_cost
 
     def get_function_handles(self, function_names):
@@ -340,6 +340,145 @@ class neuralnetwork:
             except Exception:
                 raise Exception("Something is wrong with function[{i}]")
 
+    def visualize2(
+        self,
+        neuron_face_color="w",
+        neuron_edge_color="k",
+        weight_color="b",
+        neuron_face_cmap_name="jet",
+        neuron_edge_cmap_name="jet",
+        weight_cmap_name="jet",
+        neuron_face_cmap_num=11,
+        neuron_edge_cmap_num=11,
+        weight_cmap_num=11,
+        neuron_size_param=0.25,
+        weight_size_param=1,
+        neuron_face_param_range=None,
+        neuron_edge_param_range=None,
+        weight_param_range=None,
+        weight_size_range=None,
+        neuron_size_range=None,
+        weight_param_range=None,
+        neuron_param_range=None,
+    ):
+        """ Plot neurons, weights in different sizes and colors """
+        # make colormap function handles
+        cmap_neuron_face = self.make_visualize_cmap(
+            neuron_face_color,
+            neuron_face_param_range,
+            neuron_face_cmap_name,
+            neuron_face_cmap_num,
+        )
+        cmap_neuron_edge = self.make_visualize_cmap(
+            neuron_edge_color,
+            neuron_edge_param_range,
+            neuron_edge_cmap_name,
+            neuron_edge_cmap_num,
+        )
+        cmap_weight = self.make_visualize_cmap(
+            weight_color, weight_param_range, weight_cmap_name, weight_cmap_num
+        )
+        # make size caluculation function handles
+        size_neuron = self.make_visualize_size(
+            neuron_size_param, neuron_size_range, neuron_param_range
+        )
+        size_weight = self.make_visualize_size(
+            weight_size_param, weight_size_range, weight_param_range
+        )
+
+        return 0
+
+    def make_visualize_cmap(
+        self, input_parameter, parameter_range, cmap_name, num_cmap=11
+    ):
+        """ returns a function that returns a color based on cmap and range """
+        if type(input_parameter) is str:
+            return lambda x: input_parameter
+        else:
+            cmap = cm.get_cmap(cmap_name, num_cmap)
+            return lambda x: cmap(self.num_to_01_range(x, parameter_range))
+
+    def make_visualize_size(self, input_parameter, size_range, parameter_range):
+        """ returns a function that returns a size scaled based on parameter_range """
+        if type(input_parameter) is np.ndarray:
+            return lambda x: self.num_to_new_range(x, parameter_range, size_range)
+        else:
+            return lambda x: input_parameter
+        pass
+
+    def num_to_01_range(self, x, x_lims):
+        return (x - x_lims[0]) / (x_lims[1] - x_lims[0])
+
+    def num_to_new_range(self, x, x_range, new_range):
+        return new_range[0] + (
+            self.num_to_01_range(x, x_range) * (new_range[1] - new_range[0])
+        )
+
+    def visualize(
+        self,
+        input_data=None,
+        x_space=1,
+        y_space=1,
+        neuron_size=0.5,
+        line_width=5,
+        cmap_neuron_name="jet",
+        cmap_weights_name="jet",
+    ):
+        """ plots the neural network in a matplotlib figure """
+        cmap_neurons = cm.get_cmap(cmap_neuron_name, 20)
+        cmap_weights = cm.get_cmap(cmap_weights_name, 20)
+        # calculate spacing
+        num_neurons = np.concatenate(
+            [self.num_input, self.num_neurons, self.num_output], axis=None
+        )
+        x_dim = np.linspace(1, len(num_neurons), len(num_neurons))
+        x_dim /= np.mean(x_dim)
+        y_dim = []
+
+        nn_vector = self.get_nn_vector()
+        num_weights = np.sum(num_neurons[:-1] * num_neurons[1:])
+        max_weight = np.max(np.abs(nn_vector[:num_weights]))
+        max_bias = np.max(np.abs(nn_vector[num_weights:]))
+        if max_bias == 0:
+            max_bias = np.inf
+
+        for i_nuerons in num_neurons:
+            y_vals = np.linspace(1, i_nuerons, i_nuerons)
+            y_vals -= np.mean(y_vals)
+            y_dim.append(y_vals)
+            print(y_vals)
+        print(x_dim)
+        # plot and color weights
+        for layer_num, w in enumerate(self.weights):
+            for i_row in range(w.shape[0]):
+                for j_col in range(w.shape[1]):
+                    w_val = w[i_row, j_col]
+                    x_plot = [x_dim[layer_num + 1], x_dim[layer_num]]
+                    y_plot = [y_dim[layer_num + 1][i_row], y_dim[layer_num][j_col]]
+                    plt.plot(
+                        x_plot, y_plot, color=cmap_weights(0.5 + w_val / max_weight)
+                    )
+        # plot neurons
+        for layer_num, b in enumerate(self.biases):
+            for i in range(b.size):
+                b_val = b[i]
+                plt.plot(
+                    x_dim[layer_num + 1],
+                    y_dim[layer_num + 1][i],
+                    ".",
+                    markersize=40,
+                    mec="k",
+                    mfc=cmap_neurons(0.5 + b_val[0] / max_bias),
+                )
+                # p = patches.Circle(circle_xy, radius=neuron_size / 2)
+                # plt.gcf().gca().add_artist(p)
+
+        # plot input neurons
+        for i in range(y_dim[0].size):
+            # p = patches.Circle((x_dim[0], y_dim[0][i]), radius=neuron_size / 2)
+            # plt.gcf().gca().add_artist(p)
+            plt.plot(x_dim[0], y_dim[0][i], ".", markersize=40, mfc="w", mec="k")
+
 
 def get_function_handle_by_name(function_name):
     """ Returns the Function handle"""
@@ -433,23 +572,28 @@ if __name__ == "__main__":
     myNN = neuralnetwork(
         3,
         1,
-        [4],
+        [10, 10, 10],
         output_softmax=False,
         rand_weights_method="randpm",
         rand_biases_method="zeros",
-        activation_function_names=["relu", "sigmoid"],
+        activation_function_names=["sigmoid", "sigmoid", "sigmoid", "sigmoid"],
     )
 
     input_data = np.array([[0, 1, 1, 0], [0, 1, 0, 1], [1, 1, 1, 1]])
     output_data = np.array([0, 1, 1, 0])
 
+    myNN.visualize()
+    plt.show()
+
     cost = myNN.train(
-        input_data, output_data, 1500, num_subsample_inputs=2, learning_rate=0.1
+        input_data, output_data, 1500, num_subsample_inputs=1, learning_rate=1
     )
 
-    plt.plot(cost)
+    myNN.visualize()
+
+    # plt.plot(cost)
     plt.show()
 
     data_est = myNN.feed_forward(input_data)
-    print(f"Data Estimate: {data_est}")
+    print(f"Data Estimate: {np.round(data_est,3)}")
     print(f"Data Truth   : {output_data}")
