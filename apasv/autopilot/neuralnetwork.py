@@ -32,7 +32,7 @@ class neuralnetwork:
         self.num_output = num_output
         self.num_neurons = num_neurons
         self.output_softmax = output_softmax
-        self.rand_seed = 14
+        self.rand_seed = rand_seed
         self.rand_weights_method = rand_weights_method
         self.rand_weights_scalar = rand_weights_scalar
         self.rand_biases_method = rand_biases_method
@@ -40,7 +40,7 @@ class neuralnetwork:
 
         # if no activation_functions input, use sigmoid for all layers
         if activation_function_names is None:
-            activation_function_names = ["sigmoid"] * len(num_neurons) + ["none"]
+            activation_function_names = ["sigmoid"] * len(num_neurons) + ["sigmoid"]
 
         self.activation_functions = self.get_function_handles(activation_function_names)
 
@@ -186,12 +186,11 @@ class neuralnetwork:
         if num_subsample_inputs is not None:
             np.random.seed(rand_seed)
 
-        # loop
         mean_cost = np.zeros((num_iter, 1))
         for i in range(num_iter):
             # get a subset of the data to train on
             if num_subsample_inputs is not None:
-                ind = np.random.default_rng().choice(
+                ind = np.random.choice(
                     n_observations, size=num_subsample_inputs, replace=False
                 )
                 training_inputs = input_data[:, ind].reshape(self.num_input, -1)
@@ -342,51 +341,176 @@ class neuralnetwork:
 
     def visualize2(
         self,
-        neuron_face_color="w",
-        neuron_edge_color="k",
-        weight_color="b",
-        neuron_face_cmap_name="jet",
-        neuron_edge_cmap_name="jet",
-        weight_cmap_name="jet",
+        ax=None,
+        neuron_face_color_param="w",
+        neuron_edge_color_param="k",
+        weight_color_param="b",
+        neuron_size_param=40,
+        weight_size_param=1,
+        neuron_face_cmap_name="seismic",
+        neuron_edge_cmap_name="seismic",
+        weight_color_cmap_name="seismic",
         neuron_face_cmap_num=11,
         neuron_edge_cmap_num=11,
-        weight_cmap_num=11,
-        neuron_size_param=0.25,
-        weight_size_param=1,
-        neuron_face_param_range=None,
-        neuron_edge_param_range=None,
-        weight_param_range=None,
-        weight_size_range=None,
-        neuron_size_range=None,
-        weight_param_range=None,
-        neuron_param_range=None,
+        weight_color_cmap_num=11,
+        weight_size_range=[0.1, 5],
+        neuron_size_range=[10, 80],
+        neuron_face_color_param_range=[-1, 1],
+        neuron_edge_color_param_range=[-1, 1],
+        weight_color_param_range=[-1, 1],
+        weight_size_param_range=[-1, 1],
+        neuron_size_param_range=[-1, 1],
     ):
         """ Plot neurons, weights in different sizes and colors """
         # make colormap function handles
         cmap_neuron_face = self.make_visualize_cmap(
-            neuron_face_color,
-            neuron_face_param_range,
+            neuron_face_color_param,
+            neuron_face_color_param_range,
             neuron_face_cmap_name,
             neuron_face_cmap_num,
         )
         cmap_neuron_edge = self.make_visualize_cmap(
-            neuron_edge_color,
-            neuron_edge_param_range,
+            neuron_edge_color_param,
+            neuron_edge_color_param_range,
             neuron_edge_cmap_name,
             neuron_edge_cmap_num,
         )
         cmap_weight = self.make_visualize_cmap(
-            weight_color, weight_param_range, weight_cmap_name, weight_cmap_num
-        )
-        # make size caluculation function handles
-        size_neuron = self.make_visualize_size(
-            neuron_size_param, neuron_size_range, neuron_param_range
-        )
-        size_weight = self.make_visualize_size(
-            weight_size_param, weight_size_range, weight_param_range
+            weight_color_param,
+            weight_color_param_range,
+            weight_color_cmap_name,
+            weight_color_cmap_num,
         )
 
-        return 0
+        # make size caluculation function handles
+        size_neuron = self.make_visualize_size(
+            neuron_size_param, neuron_size_range, neuron_size_param_range
+        )
+        size_weight = self.make_visualize_size(
+            weight_size_param, weight_size_range, weight_size_param_range
+        )
+
+        # calculate spacing
+        num_neurons = np.concatenate(
+            [self.num_input, self.num_neurons, self.num_output], axis=None
+        )
+        x_dim = np.linspace(1, len(num_neurons), len(num_neurons))
+        x_dim /= np.mean(x_dim)
+        y_dim = []
+        for i_nuerons in num_neurons:
+            y_vals = np.linspace(1, i_nuerons, i_nuerons)
+            y_vals -= np.mean(y_vals)
+            y_dim.append(y_vals)
+
+        # make axes handle if it isn't input
+        do_plt_show = False
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(1, 1, 1)
+            do_plt_show = True
+
+        # plot and color weights
+        for layer_num, w in enumerate(self.weights):
+            for i_row in range(w.shape[0]):
+                for j_col in range(w.shape[1]):
+                    # get line color value
+                    if type(weight_color_param) is str:
+                        line_color_val = weight_color_param
+                    else:
+                        line_color_val = weight_color_param[layer_num][i_row][j_col]
+
+                    # get face size value
+                    if type(weight_size_param) is int:
+                        line_size_val = weight_size_param
+                    else:
+                        line_size_val = weight_size_param[layer_num][i_row][j_col]
+
+                    x_plot = [x_dim[layer_num + 1], x_dim[layer_num]]
+                    y_plot = [y_dim[layer_num + 1][i_row], y_dim[layer_num][j_col]]
+                    ax.plot(
+                        x_plot,
+                        y_plot,
+                        color=cmap_weight(line_color_val),
+                        linewidth=size_weight(line_size_val),
+                    )
+        # plot neurons
+        for layer_num, b in enumerate(self.biases):
+            for i in range(b.size):
+                # get face color value
+                if type(neuron_face_color_param) is str:
+                    face_color_val = neuron_face_color_param
+                else:
+                    if len(neuron_face_color_param) == len(self.biases):
+                        face_color_val = neuron_face_color_param[layer_num][i][0]
+                    else:
+                        face_color_val = neuron_face_color_param[layer_num + 1][i][0]
+
+                # get edge color value
+                if type(neuron_edge_color_param) is str:
+                    edge_color_val = neuron_edge_color_param
+                else:
+                    if len(neuron_face_color_param) == len(self.biases):
+                        edge_color_val = neuron_edge_color_param[layer_num][i]
+                    else:
+                        edge_color_val = neuron_edge_color_param[layer_num + 1][i]
+
+                # get face size value
+                if type(neuron_size_param) is int:
+                    size_val = neuron_size_param
+                else:
+                    if len(neuron_size_param) == len(self.biases):
+                        size_val = neuron_size_param[layer_num][i]
+                    else:
+                        size_val = neuron_size_param[layer_num + 1][i]
+
+                ax.plot(
+                    x_dim[layer_num + 1],
+                    y_dim[layer_num + 1][i],
+                    ".",
+                    markersize=size_neuron(size_val),
+                    mec=cmap_neuron_edge(edge_color_val),
+                    mfc=cmap_neuron_face(face_color_val),
+                )
+                # p = patches.Circle(circle_xy, radius=neuron_size / 2)
+                # ax.gcf().gca().add_artist(p)
+
+        # plot input neurons
+        for i in range(y_dim[0].size):
+            if type(neuron_face_color_param) is str:
+                face_color_val = neuron_face_color_param
+            else:
+                if len(neuron_face_color_param) == len(self.biases):
+                    face_color_val = "w"
+                else:
+                    face_color_val = neuron_face_color_param[0][i][0]
+
+            if type(neuron_edge_color_param) is str:
+                edge_color_val = neuron_edge_color_param
+            else:
+                if len(neuron_edge_color_param) == len(self.biases):
+                    edge_color_val = "k"
+                else:
+                    edge_color_val = neuron_edge_color_param[0][i]
+
+            if type(neuron_size_param) is int:
+                size_val = neuron_size_param
+            else:
+                if len(neuron_size_param) == len(self.biases):
+                    size_val = 0
+                else:
+                    size_val = neuron_size_param[0][i]
+
+            ax.plot(
+                x_dim[0],
+                y_dim[0][i],
+                ".",
+                markersize=size_neuron(size_val),
+                mec=cmap_neuron_edge(edge_color_val),
+                mfc=cmap_neuron_face(face_color_val),
+            )
+
+        if do_plt_show:
+            plt.show()
 
     def make_visualize_cmap(
         self, input_parameter, parameter_range, cmap_name, num_cmap=11
@@ -400,7 +524,7 @@ class neuralnetwork:
 
     def make_visualize_size(self, input_parameter, size_range, parameter_range):
         """ returns a function that returns a size scaled based on parameter_range """
-        if type(input_parameter) is np.ndarray:
+        if type(input_parameter) is not int:
             return lambda x: self.num_to_new_range(x, parameter_range, size_range)
         else:
             return lambda x: input_parameter
@@ -421,12 +545,12 @@ class neuralnetwork:
         y_space=1,
         neuron_size=0.5,
         line_width=5,
-        cmap_neuron_name="jet",
-        cmap_weights_name="jet",
+        cmap_neuron_name="seismic",
+        cmap_weights_name="seismic",
     ):
         """ plots the neural network in a matplotlib figure """
-        cmap_neurons = cm.get_cmap(cmap_neuron_name, 20)
-        cmap_weights = cm.get_cmap(cmap_weights_name, 20)
+        cmap_neurons = cm.get_cmap(cmap_neuron_name, 11)
+        cmap_weights = cm.get_cmap(cmap_weights_name, 11)
         # calculate spacing
         num_neurons = np.concatenate(
             [self.num_input, self.num_neurons, self.num_output], axis=None
@@ -437,7 +561,7 @@ class neuralnetwork:
 
         nn_vector = self.get_nn_vector()
         num_weights = np.sum(num_neurons[:-1] * num_neurons[1:])
-        max_weight = np.max(np.abs(nn_vector[:num_weights]))
+        max_weight = 1
         max_bias = np.max(np.abs(nn_vector[num_weights:]))
         if max_bias == 0:
             max_bias = np.inf
@@ -572,28 +696,37 @@ if __name__ == "__main__":
     myNN = neuralnetwork(
         3,
         1,
-        [10, 10, 10],
+        [4],
         output_softmax=False,
         rand_weights_method="randpm",
         rand_biases_method="zeros",
-        activation_function_names=["sigmoid", "sigmoid", "sigmoid", "sigmoid"],
     )
 
     input_data = np.array([[0, 1, 1, 0], [0, 1, 0, 1], [1, 1, 1, 1]])
     output_data = np.array([0, 1, 1, 0])
 
-    myNN.visualize()
-    plt.show()
-
     cost = myNN.train(
-        input_data, output_data, 1500, num_subsample_inputs=1, learning_rate=1
+        input_data,
+        output_data,
+        1500,
+        num_subsample_inputs=4,
+        learning_rate=12654444444444442395,
     )
 
-    myNN.visualize()
-
-    # plt.plot(cost)
-    plt.show()
+    # myNN.visualize()
+    # plt.show()
+    activation, dadz = myNN.feed_forward_full(input_data[:, 2])
 
     data_est = myNN.feed_forward(input_data)
     print(f"Data Estimate: {np.round(data_est,3)}")
     print(f"Data Truth   : {output_data}")
+
+    myNN.visualize2(
+        neuron_face_color_param=activation,
+        neuron_size_param=40,
+        weight_color_param=myNN.weights,
+        weight_size_param=myNN.weights,
+    )
+
+    plt.plot(cost)
+    plt.show()
