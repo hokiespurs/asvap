@@ -2,9 +2,7 @@
 import neuralnetwork as nn
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import animation, rc
-from IPython.display import HTML
-
+from matplotlib import animation
 
 # set up plot
 cost = []
