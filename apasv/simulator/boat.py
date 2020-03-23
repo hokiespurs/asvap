@@ -16,10 +16,10 @@ class boat:
         hullshape=np.array([[-1, -1, 0, 1, 1], [-1, 1, 2, 1, -1]]),
         friction=[2, 30, 10, 50],  # sideways, forwards, backwards, rotation
         thrust_x_pos=[-0.2, 0.2],
-        mass=5,
+        mass=4,
         rotational_mass=0.5,
         thrust_function=lambda x: x / 20,
-        friction_function=lambda friction, vel: -friction * (vel ** 3 / 10 + vel),
+        friction_function=lambda friction, vel: -friction * vel * 3,
         max_num_history=10000,
     ):
         # kinematics
@@ -99,7 +99,7 @@ class boat:
         )
         max_num_history = self.__history.shape[0]
         self.num_history_epochs += 1
-        if self.num_history_epochs > max_num_history:
+        if self.num_history_epochs == max_num_history:
             self.num_history_epochs = 0
             self.is_history_looped = True
 
@@ -110,7 +110,7 @@ class boat:
         )
         max_num_history = self.__history_of_updates.shape[0]
         self.num_updates += 1
-        if self.num_updates > max_num_history:
+        if self.num_updates == max_num_history:
             self.num_updates = 0
             self.is_history_of_updates_looped = True
 
@@ -162,7 +162,7 @@ class boat:
         for t_step in range(num_dt):
             # convert water velocity from world to boat reference frame
             vel_water_world_x, vel_water_world_y = vel_water_function(
-                (self.pos["x"], self.pos["y"])
+                [self.pos["x"], self.pos["y"]]
             )
             vel_water_boat_x, vel_water_boat_y = self.world_to_local_coords(
                 [vel_water_world_x, vel_water_world_y], self.pos["az"]
@@ -177,7 +177,7 @@ class boat:
             friction_force_boat_x = self.friction_function(
                 self.friction["sideways"], vel_boat_relative_x
             )
-            if vel_boat_relative_x > 0:
+            if vel_boat_relative_y > 0:
                 friction_force_boat_y = self.friction_function(
                     self.friction["forwards"], vel_boat_relative_y
                 )
@@ -189,7 +189,7 @@ class boat:
             # TODO Fix friction forces for azimuth, ensure friction not overshooting
             #   eg. 50m/s v_az w/ no throttle, corrects to -10 m/s v_az from friction
             friction_force_boat_az = self.friction_function(
-                self.friction["rotation"], self.vel_boat["az"] / 50
+                self.friction["rotation"], self.vel_boat["az"] / 200
             )
             # compute thrust forces from each motor  ** torque == force_boat_az **
             # positive force is pushing in positive direction in pos and az
@@ -220,14 +220,15 @@ class boat:
             # calculate relative boat position in world coordinates
             # note: uses the average azimuth over the timestep to go to world coords
             delta_world_pos_x, delta_world_pos_y = self.local_to_world_coords(
-                [delta_boat_pos_x, delta_boat_pos_y],
-                self.pos["az"] + delta_boat_pos_az / 2,
+                [delta_boat_pos_x, delta_boat_pos_y], self.pos["az"],
             )
 
             # store new time, positions and velocities
             self.pos["x"] += delta_world_pos_x
             self.pos["y"] += delta_world_pos_y
             self.pos["az"] += delta_boat_pos_az  # daz_boat == daz_world
+            if self.pos["az"] > 360:
+                self.pos["az"] -= 360
 
             self.vel_boat["x"] = new_vel_boat_x
             self.vel_boat["y"] = new_vel_boat_y
@@ -298,20 +299,24 @@ class boat:
 
 
 if __name__ == "__main__":
-    myboat = boat()
-    myboat.pos["az"] = 0
-    myboat.throttle = [80, 90]
-    for _ in range(25):
-        myboat.update_position(1, 10)
+    myboat = boat(pos=[0, 0, -30])
+    myboat.throttle = [100, -100]
+    for _ in range(50):
+        myboat.update_position(1, 100, vel_water_function=lambda xy: (1, 0))
 
     fig, ax = plt.subplots()
     myboat.plot_history_line(ax, line_color="k", line_width=3)
-    myboat.plot_boat_position(ax, scale=[1, 1])
-    plt.axis([-10, 10, -10, 10])
+    myboat.plot_boat_position(ax, scale=[0.25, 0.35], times_to_plot=np.arange(0, 11, 1))
+    plt.axis([-10, 30, -10, 10])
     ax.set_aspect("equal", "box")
     plt.grid(True)
     plt.show()
 
-    test_world_x, test_world_y = myboat.local_to_world_coords([0, 1], 0)
-    true_world_x, true_world_y = [0, 1]
-    print(f"{(test_world_x,test_world_y)} =={(true_world_x, true_world_y)}")
+    t = myboat.history[:, 0]
+    vx = myboat.history[:, 4]
+    az = myboat.history[:, 3]
+    plt.subplot(2, 1, 1)
+    plt.plot(t, vx)
+    plt.subplot(2, 1, 2)
+    plt.plot(t, az)
+    plt.show()
