@@ -15,7 +15,7 @@ class boat:
         color=[215 / 255, 63 / 255, 9 / 255],  # go beavs
         hullshape=np.array([[-1, -1, 0, 1, 1], [-1, 1, 2, 1, -1]]),
         friction=[2, 30, 10, 50],  # sideways, forwards, backwards, rotation
-        thrust_x_pos=[-0.2, 0.2],
+        thrust_x_pos=[-0.1, 0.1],
         mass=4,
         rotational_mass=0.5,
         thrust_function=lambda x: x / 20,
@@ -156,6 +156,8 @@ class boat:
 
     def update_position(self, time_step, num_dt, vel_water_function=lambda xy: (0, 0)):
         """ Update the position of the boat """
+        # TODO Conservation of momentum is not right...
+        # fast current goign into no current will have a show a crazy high acceleration
         self._update_history_of_updates()
         # for the num_dt to move
         dt = time_step / num_dt
@@ -169,8 +171,8 @@ class boat:
             )
 
             # compute boat relative velocities
-            vel_boat_relative_x = self.vel_boat["x"] - vel_water_boat_x
-            vel_boat_relative_y = self.vel_boat["y"] - vel_water_boat_y
+            vel_boat_relative_x = self.vel_boat["x"] - 0
+            vel_boat_relative_y = self.vel_boat["y"] - 0
 
             # compute friction forces ** torque == force_boat_az **
             # positive force is pushing in positive direction
@@ -208,6 +210,7 @@ class boat:
             total_force_boat_az = thrust_force_boat_az + friction_force_boat_az
 
             # calculate velocity and delta position of boat based on forces and dt
+
             new_vel_boat_x, delta_boat_pos_x = self.apply_boat_forces(
                 self.vel_boat["x"], self.mass, total_force_boat_x, dt
             )
@@ -224,8 +227,8 @@ class boat:
             )
 
             # store new time, positions and velocities
-            self.pos["x"] += delta_world_pos_x
-            self.pos["y"] += delta_world_pos_y
+            self.pos["x"] += delta_world_pos_x + vel_water_world_x * dt
+            self.pos["y"] += delta_world_pos_y + vel_water_world_y * dt
             self.pos["az"] += delta_boat_pos_az  # daz_boat == daz_world
             if self.pos["az"] > 360:
                 self.pos["az"] -= 360
@@ -299,10 +302,18 @@ class boat:
 
 
 if __name__ == "__main__":
-    myboat = boat(pos=[0, 0, -30])
-    myboat.throttle = [100, -100]
+    az = 30
+    vx_world = 0.25
+    vy_world = 0.5
+    vx_boat, vy_boat = boat.world_to_local_coords([vx_world, vy_world], az)
+
+    myboat = boat(pos=[0, 0, az])
+
+    myboat.throttle = [100, 50]
     for _ in range(50):
-        myboat.update_position(1, 100, vel_water_function=lambda xy: (1, 0))
+        myboat.update_position(
+            1, 100, vel_water_function=lambda xy: (vx_world, vy_world)
+        )
 
     fig, ax = plt.subplots()
     myboat.plot_history_line(ax, line_color="k", line_width=3)
@@ -320,3 +331,7 @@ if __name__ == "__main__":
     plt.subplot(2, 1, 2)
     plt.plot(t, az)
     plt.show()
+
+    boat_az = 45
+    vx_boat, vy_boat = boat.world_to_local_coords([vx_world, vy_world], boat_az)
+    print((vx_boat, vy_boat))
