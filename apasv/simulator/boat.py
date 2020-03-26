@@ -119,14 +119,6 @@ class boat:
         """ Return a list with [x,y,az] in it """
         return [self.pos["x"], self.pos["y"], self.pos["az"]]
 
-    # @property
-    # def vel_world(self):
-    #     """ Return velocity of boat in world coordinates as dictionary """
-    #     vel_world_x, vel_world_y = self.local_to_world_coords(
-    #         [self.vel_boat["x"], self.vel_boat["y"]], self.pos["az"]
-    #     )
-    #     return {"x": vel_world_x, "y": vel_world_y, "az": self.vel_boat["az"]}
-
     @property
     def vel_world_vec(self):
         """ Return velocity of boat in world coordinates as list"""
@@ -182,8 +174,7 @@ class boat:
             friction_force_boat_x = self.friction_function(
                 self.friction["sideways"], vel_relative_boat_x
             )
-            if self.time > 9.5:
-                print("test")
+
             if vel_relative_boat_y > 0:
                 friction_force_boat_y = self.friction_function(
                     self.friction["forwards"], vel_relative_boat_y
@@ -249,16 +240,6 @@ class boat:
             self.time = np.round(self.time + dt, 6)  # avoid 0.99999999 LSB errors
             self._update_history()
 
-    @staticmethod
-    def apply_boat_forces(vel_initial, mass, force, delta_time):
-        accel = force / mass
-        delta_velocity = accel * delta_time
-        vel_final = vel_initial + delta_velocity
-        # move boat based on average velocity over that time
-        vel_average = vel_initial + delta_velocity / 2
-        delta_position = vel_average * delta_time
-        return (vel_final, delta_position)
-
     def plot_history_line(self, ax, line_color="b", line_width=1):
         """ plot a line of where the boat has been """
         x_plot = self.history[:, 1]
@@ -266,15 +247,23 @@ class boat:
         ax.plot(x_plot, y_plot, color=line_color, linewidth=line_width)
 
     def plot_boat_position(
-        self, ax, scale=[0.25, 0.5], times_to_plot=None, zorder=10, alpha=0.9
+        self,
+        ax,
+        scale=[0.25, 0.5],
+        times_to_plot=None,
+        zorder=10,
+        alpha=0.9,
+        face_colors=None,
     ):
         """ plot the boat positiona and orientation at times in vector """
         if times_to_plot is None:
             times_to_plot = [self.time]
+        if face_colors is None:
+            face_colors = [self.color] * len(times_to_plot)
 
         # get indices of times to plot
         all_times = self.history[:, 0]
-        for t in times_to_plot:
+        for t, boat_color in zip(times_to_plot, face_colors):
             if t <= self.time:
                 # get index of data for time requested
                 t_delta = np.round(all_times - t, 3)
@@ -300,7 +289,7 @@ class boat:
                 ax.add_patch(
                     Polygon(
                         plotpoints.T,
-                        fc=self.color,
+                        fc=boat_color,
                         edgecolor="k",
                         zorder=zorder,
                         alpha=alpha,
@@ -311,7 +300,7 @@ class boat:
 if __name__ == "__main__":
 
     def watervelfun(xy):
-        if xy[1] > -4:
+        if xy[0] > -1:
             return (-1, 0.5)
         else:
             return (-0.5, 0)
@@ -320,9 +309,9 @@ if __name__ == "__main__":
 
     for t in range(14):
         if t == 1:
-            myboat.throttle = [40, 100]
+            myboat.throttle = [60, 100]
         elif t == 5:
-            myboat.throttle = [100, 100]
+            myboat.throttle = [100, 20]
         elif t == 8:
             myboat.throttle = [-100, 100]
         elif t == 10:
@@ -333,7 +322,10 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     myboat.plot_history_line(ax, line_color="k", line_width=3)
     myboat.plot_boat_position(
-        ax, scale=[0.25, 0.35], times_to_plot=np.arange(0, 15, 0.5)
+        ax,
+        scale=[0.25, 0.35],
+        times_to_plot=[1, 5, 14],
+        face_colors=["r", "g", (0, 0, 0)],
     )
     plt.axis([-10, 10, -10, 10])
     ax.set_aspect("equal", "box")
