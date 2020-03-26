@@ -9,23 +9,23 @@ class boat:
         self,
         time=0,
         pos=[0, 0, 0],
-        vel_boat=[0, 0, 0],
-        acc_boat=[0, 0, 0],
+        vel_world=[0, 0, 0],
         throttle=[0, 0],
         color=[215 / 255, 63 / 255, 9 / 255],  # go beavs
         hullshape=np.array([[-1, -1, 0, 1, 1], [-1, 1, 2, 1, -1]]),
-        friction=[2, 30, 10, 50],  # sideways, forwards, backwards, rotation
+        friction=[2, 20, 20, 40],  # forwards, backwards, sideways, rotation
         thrust_x_pos=[-0.1, 0.1],
         mass=4,
         rotational_mass=0.5,
         thrust_function=lambda x: x / 20,
-        friction_function=lambda friction, vel: -friction * vel * 3,
+        friction_function=lambda friction, vel: friction * vel * 3,
+        friction_function_rotation=lambda friction, vel: friction * vel / 200 * 3,
         max_num_history=10000,
     ):
         # kinematics
         self.time = time
         self.pos = {"x": pos[0], "y": pos[1], "az": pos[2]}
-        self.vel_boat = {"x": vel_boat[0], "y": vel_boat[1], "az": vel_boat[2]}
+        self.vel_world = {"x": vel_world[0], "y": vel_world[1], "az": vel_world[2]}
         # physics
         self.friction = {
             "forwards": friction[0],
@@ -38,7 +38,7 @@ class boat:
         self.rotational_mass = rotational_mass
         self.thrust_function = thrust_function
         self.friction_function = friction_function
-
+        self.friction_function_rotation = friction_function_rotation
         # control input
         self.throttle = throttle
         # appearance
@@ -119,13 +119,13 @@ class boat:
         """ Return a list with [x,y,az] in it """
         return [self.pos["x"], self.pos["y"], self.pos["az"]]
 
-    @property
-    def vel_world(self):
-        """ Return velocity of boat in world coordinates as dictionary """
-        vel_world_x, vel_world_y = self.local_to_world_coords(
-            [self.vel_boat["x"], self.vel_boat["y"]], self.pos["az"]
-        )
-        return {"x": vel_world_x, "y": vel_world_y, "az": self.vel_boat["az"]}
+    # @property
+    # def vel_world(self):
+    #     """ Return velocity of boat in world coordinates as dictionary """
+    #     vel_world_x, vel_world_y = self.local_to_world_coords(
+    #         [self.vel_boat["x"], self.vel_boat["y"]], self.pos["az"]
+    #     )
+    #     return {"x": vel_world_x, "y": vel_world_y, "az": self.vel_boat["az"]}
 
     @property
     def vel_world_vec(self):
@@ -162,84 +162,91 @@ class boat:
         # for the num_dt to move
         dt = time_step / num_dt
         for t_step in range(num_dt):
+            # TODO Fix friction forces for azimuth, ensure friction not overshooting
+            #   eg. 50m/s v_az w/ no throttle, corrects to -10 m/s v_az from friction
+
+            # -------------------- ACCELERATION FROM WATER CURRENTS ----------
             # convert water velocity from world to boat reference frame
             vel_water_world_x, vel_water_world_y = vel_water_function(
                 [self.pos["x"], self.pos["y"]]
             )
-            vel_water_boat_x, vel_water_boat_y = self.world_to_local_coords(
-                [vel_water_world_x, vel_water_world_y], self.pos["az"]
+            vel_relative_world_x = self.vel_world["x"] - vel_water_world_x
+            vel_relative_world_y = self.vel_world["y"] - vel_water_world_y
+
+            vel_relative_boat_x, vel_relative_boat_y = self.world_to_local_coords(
+                [vel_relative_world_x, vel_relative_world_y], self.pos["az"]
             )
 
-            # compute boat relative velocities
-            vel_boat_relative_x = self.vel_boat["x"] - 0
-            vel_boat_relative_y = self.vel_boat["y"] - 0
-
-            # compute friction forces ** torque == force_boat_az **
+            # compute friction forces due to relative water velocities
             # positive force is pushing in positive direction
             friction_force_boat_x = self.friction_function(
-                self.friction["sideways"], vel_boat_relative_x
+                self.friction["sideways"], vel_relative_boat_x
             )
-            if vel_boat_relative_y > 0:
+            if self.time > 9.5:
+                print("test")
+            if vel_relative_boat_y > 0:
                 friction_force_boat_y = self.friction_function(
-                    self.friction["forwards"], vel_boat_relative_y
+                    self.friction["forwards"], vel_relative_boat_y
                 )
             else:
                 friction_force_boat_y = self.friction_function(
-                    self.friction["backwards"], vel_boat_relative_y
+                    self.friction["backwards"], vel_relative_boat_y
                 )
-            # * divided velocity by 50 because... reasons?
-            # TODO Fix friction forces for azimuth, ensure friction not overshooting
-            #   eg. 50m/s v_az w/ no throttle, corrects to -10 m/s v_az from friction
-            friction_force_boat_az = self.friction_function(
-                self.friction["rotation"], self.vel_boat["az"] / 200
+
+            # compute acceleration in world reference frame due to friction
+            accel_friction_boat_x = -friction_force_boat_x / self.mass
+            accel_friction_boat_y = -friction_force_boat_y / self.mass
+
+            accel_friction_world_x, accel_friction_world_y = self.local_to_world_coords(
+                [accel_friction_boat_x, accel_friction_boat_y], self.pos["az"]
             )
+
+            # -------------------- ACCELERATION FROM THRUSTERS ----------
             # compute thrust forces from each motor  ** torque == force_boat_az **
             # positive force is pushing in positive direction in pos and az
             thrust_force_boat_y = self.thrust_function(
                 self.throttle[0]
             ) + self.thrust_function(self.throttle[1])
 
+            accel_thrust_boat_y = thrust_force_boat_y / self.mass
+            accel_thrust_boat_x = 0
+
+            accel_thrust_world_x, accel_thrust_world_y = self.local_to_world_coords(
+                [accel_thrust_boat_x, accel_thrust_boat_y], self.pos["az"]
+            )
+
+            # -------------------- COMBINE WORLD ACCELERATIONS ----------
+            accel_total_world_x = accel_friction_world_x + accel_thrust_world_x
+            accel_total_world_y = accel_friction_world_y + accel_thrust_world_y
+
+            # store new time, positions and velocities
+            self.vel_world["x"] += accel_total_world_x * dt
+            self.vel_world["y"] += accel_total_world_y * dt
+
+            self.pos["x"] += self.vel_world["x"] * dt
+            self.pos["y"] += self.vel_world["y"] * dt
+
+            # -------------------- ROTATE BOAT --------------
+            # compute forces influencing boat azimuth
+            friction_force_boat_az = self.friction_function_rotation(
+                self.friction["rotation"], self.vel_world["az"]
+            )
+
             thrust_force_boat_az = (
                 self.thrust_function(self.throttle[0]) / -self.thrust_x_pos[0]
                 + self.thrust_function(self.throttle[1]) / -self.thrust_x_pos[1]
             )
-
-            # Compute total forces acting on boat
-            total_force_boat_x = friction_force_boat_x
-            total_force_boat_y = thrust_force_boat_y + friction_force_boat_y
-            total_force_boat_az = thrust_force_boat_az + friction_force_boat_az
-
-            # calculate velocity and delta position of boat based on forces and dt
-
-            new_vel_boat_x, delta_boat_pos_x = self.apply_boat_forces(
-                self.vel_boat["x"], self.mass, total_force_boat_x, dt
-            )
-            new_vel_boat_y, delta_boat_pos_y = self.apply_boat_forces(
-                self.vel_boat["y"], self.mass, total_force_boat_y, dt
-            )
-            new_vel_boat_az, delta_boat_pos_az = self.apply_boat_forces(
-                self.vel_boat["az"], self.rotational_mass, total_force_boat_az, dt
-            )
-            # calculate relative boat position in world coordinates
-            # note: uses the average azimuth over the timestep to go to world coords
-            delta_world_pos_x, delta_world_pos_y = self.local_to_world_coords(
-                [delta_boat_pos_x, delta_boat_pos_y], self.pos["az"],
-            )
-
-            # store new time, positions and velocities
-            self.pos["x"] += delta_world_pos_x + vel_water_world_x * dt
-            self.pos["y"] += delta_world_pos_y + vel_water_world_y * dt
-            self.pos["az"] += delta_boat_pos_az  # daz_boat == daz_world
+            # compute and convert acceleration to velocity and position
+            accel_azimuth = (
+                thrust_force_boat_az - friction_force_boat_az
+            ) / self.rotational_mass
+            self.vel_world["az"] += accel_azimuth * dt
+            self.pos["az"] += self.vel_world["az"] * dt
             if self.pos["az"] > 360:
                 self.pos["az"] -= 360
 
-            self.vel_boat["x"] = new_vel_boat_x
-            self.vel_boat["y"] = new_vel_boat_y
-            self.vel_boat["az"] = new_vel_boat_az
-
+            # -------------------- UPDATE HISTORY --------------
             self.time = np.round(self.time + dt, 6)  # avoid 0.99999999 LSB errors
-
-            # update history
             self._update_history()
 
     @staticmethod
@@ -302,36 +309,45 @@ class boat:
 
 
 if __name__ == "__main__":
-    az = 30
-    vx_world = 0.25
-    vy_world = 0.5
-    vx_boat, vy_boat = boat.world_to_local_coords([vx_world, vy_world], az)
 
-    myboat = boat(pos=[0, 0, az])
+    def watervelfun(xy):
+        if xy[1] > -4:
+            return (-1, 0.5)
+        else:
+            return (-0.5, 0)
 
-    myboat.throttle = [100, 50]
-    for _ in range(50):
-        myboat.update_position(
-            1, 100, vel_water_function=lambda xy: (vx_world, vy_world)
-        )
+    myboat = boat(pos=[0, 0, 90])
+
+    for t in range(14):
+        if t == 1:
+            myboat.throttle = [40, 100]
+        elif t == 5:
+            myboat.throttle = [100, 100]
+        elif t == 8:
+            myboat.throttle = [-100, 100]
+        elif t == 10:
+            myboat.throttle = [10, 10]
+
+        myboat.update_position(1, 100, vel_water_function=watervelfun)
 
     fig, ax = plt.subplots()
     myboat.plot_history_line(ax, line_color="k", line_width=3)
-    myboat.plot_boat_position(ax, scale=[0.25, 0.35], times_to_plot=np.arange(0, 11, 1))
-    plt.axis([-10, 30, -10, 10])
+    myboat.plot_boat_position(
+        ax, scale=[0.25, 0.35], times_to_plot=np.arange(0, 15, 0.5)
+    )
+    plt.axis([-10, 10, -10, 10])
     ax.set_aspect("equal", "box")
     plt.grid(True)
-    plt.show()
 
+    fig2, ax2 = plt.subplots()
     t = myboat.history[:, 0]
     vx = myboat.history[:, 4]
+    vy = myboat.history[:, 5]
     az = myboat.history[:, 3]
     plt.subplot(2, 1, 1)
-    plt.plot(t, vx)
+    plt.plot(t, vx, color="r", label="x velocity")
+    plt.plot(t, vy, color="b", label="y velocity")
+    plt.legend()
     plt.subplot(2, 1, 2)
     plt.plot(t, az)
     plt.show()
-
-    boat_az = 45
-    vx_boat, vy_boat = boat.world_to_local_coords([vx_world, vy_world], boat_az)
-    print((vx_boat, vy_boat))
