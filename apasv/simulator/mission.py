@@ -4,7 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import boat
 from time import process_time
-import cProfile
 
 
 class mission:
@@ -37,6 +36,10 @@ class mission:
             waypoint_data["offline_std"],
             waypoint_data["speed_std"],
         ):
+
+            line_dist = np.sqrt((wp1_x - wp2_x) ** 2 + (wp1_y - wp2_y) ** 2)
+            num_gates = int(np.ceil(line_dist / self.fitness_spacing))
+            downline_eval = np.linspace(0, line_dist, num_gates)
             line_dictionary = {
                 "P1x": wp1_x,
                 "P1y": wp1_y,
@@ -45,6 +48,8 @@ class mission:
                 "speed": speed,
                 "offline_std": offline_std,
                 "speed_std": speed_std,
+                "downline_eval": downline_eval,
+                "num_gates": num_gates,
             }
             survey_lines.append(line_dictionary)
         return survey_lines
@@ -55,10 +60,7 @@ class mission:
         line_gate_x = []
         line_gate_y = []
         for line in self.survey_lines:
-            line_dist = np.sqrt(
-                (line["P1x"] - line["P2x"]) ** 2 + (line["P1y"] - line["P2y"]) ** 2
-            )
-            num_gates = int(np.ceil(line_dist / self.fitness_spacing))
+            num_gates = line["num_gates"]
             fitness_table.append(np.zeros((num_gates, 1)))
             line_gate_x.append(np.linspace(line["P1x"], line["P2x"], num_gates))
             line_gate_y.append(np.linspace(line["P1y"], line["P2x"], num_gates))
@@ -68,6 +70,7 @@ class mission:
 
         return fitness_table
 
+    # @profile
     def get_fitness(self, boat, max_line=np.inf, max_skip_gate=10, max_back_gate=3):
         """update and return fitness of the boat on the mission"""
         # only look at new x,y,z points that haven't been evlauated
@@ -90,28 +93,32 @@ class mission:
                 downline_vel, offline_vel = self.xy_to_downline_offline(
                     vel_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]
                 )
-                # evaluate along line
 
-                line_dist = np.sqrt(
-                    (line["P1x"] - line["P2x"]) ** 2 + (line["P1y"] - line["P2y"]) ** 2
-                )
-                downline_eval = np.linspace(
-                    0, line_dist, len(self.fitness_table[line_num])
-                )
+                min_downline = np.min(downline_pos)
+                max_downline = np.max(downline_pos)
+                # evaluate along line
+                downline_eval = line["downline_eval"]
                 for gate_num, downline_gate_pos in enumerate(downline_eval):
                     # dont search a ton past a point
                     if skipped_gates > max_skip_gate:
                         return self.fitness_score
                         # x = 0
-                    if not (
-                        line_num == self.last_line and gate_num < self.last_gate - 5
-                    ):
+                    is_old_gate = (
+                        line_num == self.last_line
+                        and gate_num < self.last_gate - max_back_gate
+                    )
+                    is_no_data = (
+                        max_downline < downline_gate_pos - self.fitness_spacing / 2
+                        or min_downline > downline_gate_pos + self.fitness_spacing / 2
+                    )
+                    if not is_old_gate and not is_no_data:
                         downline_error = downline_pos - downline_gate_pos
                         ind = np.logical_and(
-                            np.abs(downline_error) < self.fitness_spacing / 2,
-                            (np.abs(offline_pos) < line["offline_std"] * 3),
+                            abs(downline_error) < self.fitness_spacing / 2,
+                            (abs(offline_pos) < line["offline_std"] * 3),
                         )
-                        if sum(ind) > 0:
+                        if any(ind):
+
                             self.last_line = line_num
                             self.last_gate = gate_num
                             skipped_gates = 0
@@ -134,6 +141,8 @@ class mission:
                                 self.fitness_table[line_num][gate_num] = max_fitness
                         else:
                             skipped_gates += 1
+                    else:
+                        skipped_gates += 1
 
         return self.fitness_score
 
@@ -222,11 +231,12 @@ def main():
     )
 
     myboat.plot_history_line(ax)
+
     plt.show()
 
 
 if __name__ == "__main__":
-    # cProfile.run("main()")
+    # ".\env\Scripts\kernprof.exe" -l -v ".\apasv\simulator\mission.py" > .\test2.txt
     main()
 
 
