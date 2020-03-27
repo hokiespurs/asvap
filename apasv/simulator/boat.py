@@ -13,9 +13,9 @@ class boat:
         throttle=[0, 0],
         color=[215 / 255, 63 / 255, 9 / 255],  # go beavs
         hullshape=np.array([[-1, -1, 0, 1, 1], [-1, 1, 2, 1, -1]]),
-        friction=[2, 20, 20, 40],  # forwards, backwards, sideways, rotation
+        friction=[1, 20, 20, 40],  # forwards, backwards, sideways, rotation
         thrust_x_pos=[-0.1, 0.1],
-        mass=4,
+        mass=6,
         rotational_mass=0.5,
         thrust_function=lambda x: x / 20,
         friction_function=lambda friction, vel: friction * vel * 3,

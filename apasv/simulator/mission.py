@@ -2,7 +2,6 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import boat
 from time import process_time
 
 # TODO mission.py is not well documented, and could use an overhaul
@@ -193,6 +192,7 @@ def main():
 
     fig, ax = plt.subplots()
     my_mission.plot_survey_lines(ax)
+    import boat
 
     myboat = boat.boat(pos=[0, 0, 0])
 
