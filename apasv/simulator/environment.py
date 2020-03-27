@@ -1,6 +1,6 @@
 # import numpy as numpy
 # from scipy.interpolate import RegularGridInterpolator
-from scipy.misc import imread
+# from scipy.misc import imread
 
 
 class environment:
@@ -43,7 +43,8 @@ class environment:
         if background_image is None:
             self.background_image = None
         else:
-            self.background_image = imread(background_image)
+            self.background_image = None
+            # self.background_image = imread(background_image)
 
     @classmethod
     def __read_currents(fname, current_x_scale, current_y_scale, axis_lims):

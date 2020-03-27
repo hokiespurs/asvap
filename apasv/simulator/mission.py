@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import boat
 from time import process_time
 
+# TODO mission.py is not well documented, and could use an overhaul
+
 
 class mission:
     """ surveying mission and fitness function"""

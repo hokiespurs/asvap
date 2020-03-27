@@ -246,6 +246,25 @@ class boat:
         y_plot = self.history[:, 2]
         ax.plot(x_plot, y_plot, color=line_color, linewidth=line_width)
 
+    def get_boat_polygon(self, boat_pos=None, scale=1):
+        if boat_pos is None:
+            boat_pos = self.pos
+        # boat scalex, boat scale y
+        if type(scale) != list:
+            scale = [scale, scale]
+        boat_shape = self.hullshape * np.array(scale).reshape(2, 1)
+
+        # rotate to world coordinates
+        azrad = np.deg2rad(-boat_pos["az"])
+        R = np.array(
+            [[np.cos(azrad), -1 * np.sin(azrad)], [np.sin(azrad), np.cos(azrad)]]
+        )
+        plot_points = R.dot(boat_shape) + np.array(
+            [boat_pos["x"], boat_pos["y"]]
+        ).reshape(2, -1)
+
+        return plot_points
+
     def plot_boat_position(
         self,
         ax,
@@ -270,21 +289,9 @@ class boat:
                 ind = np.argmin(np.abs(t_delta))  # round to ms
                 # get boat data from history
                 boat_pos = self.history[ind, [1, 2, 3]]
+                boat_pos = {"x": boat_pos[0], "y": boat_pos[1], "az": boat_pos[2]}
                 # scale boat size
-                if type(scale) != list:
-                    scale = [scale, scale]
-                boat_shape = self.hullshape * np.array(scale).reshape(2, 1)
-                # rotate to world coordinates
-                azrad = np.deg2rad(-boat_pos[2])
-                R = np.array(
-                    [
-                        [np.cos(azrad), -1 * np.sin(azrad)],
-                        [np.sin(azrad), np.cos(azrad)],
-                    ]
-                )
-                plotpoints = R.dot(boat_shape) + np.array(
-                    np.array([boat_pos[0], boat_pos[1]]).reshape(2, -1)
-                )
+                plotpoints = self.get_boat_polygon(boat_pos, scale)
                 # add patch to axes
                 ax.add_patch(
                     Polygon(
@@ -324,7 +331,7 @@ if __name__ == "__main__":
     myboat.plot_boat_position(
         ax,
         scale=[0.25, 0.35],
-        times_to_plot=[1, 5, 14],
+        times_to_plot=[0, 5, 14],
         face_colors=["r", "g", (0, 0, 0)],
     )
     plt.axis([-10, 10, -10, 10])
