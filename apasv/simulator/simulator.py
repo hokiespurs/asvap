@@ -7,36 +7,95 @@ import environment
 
 
 class simulator:
-    def __init__(self, boat, mission, environment, visual, show_visual=True):
+    def __init__(self, boat, mission, environment, visual):
         self.boat = boat
         self.mission = mission
         self.environment = environment
         self.visual = visual
-        self.show_visual = show_visual
+        self.keys_pressed = None
 
     def get_fitness(self):
         """ Get the fitness of the boat on the mission """
-        pass
+        return self.mission.fitness_score
 
-    def get_data(self):
-        pass
+    def get_mission_waypoints(self):
+        """ return the mission """
+        return self.mission.survey_lines
 
-    def set_boat_data(self):
-        pass
+    def get_boat_data(self):
+        """ Return Data from the Boat that the autopilot could use """
+        # use a dictionary so its more intuitive in autopilot code
+        # pos x,y,az
+        # vel x,y,az
+
+        boat_data = {
+            "x": self.boat.pos["x"][0],
+            "y": self.boat.pos["y"][0],
+            "az": self.boat.pos["az"][0],
+            "vx": self.boat.vel_world["x"][0],
+            "vy": self.boat.vel_world["y"][0],
+            "vaz": self.boat.vel_world["az"][0],
+        }
+        return boat_data
+
+    def set_boat_control(self, throttle):
+        """ Set the boat throttle """
+        self.boat.throttle = throttle
 
     def update_boat(self, t, n):
+        """ update the boat position for t seconds using n steps """
         self.boat.update_position(t, n, self.environment.get_currents)
         self.mission.get_fitness(self.boat)
 
     def update_visual(self, pause_time=0.1):
+        """ Update the pygame visual """
+        cam_offset = 200 / 1000 * self.visual.hfov / 2
+        self.visual.cam_pos = np.hstack(
+            (self.boat.pos["x"] - cam_offset, self.boat.pos["y"])
+        )
         self.visual.draw_background()
         self.draw_mission()
         self.draw_boat_path()
         self.draw_boat()
         self.visual.draw_boat_throttle(self.boat.throttle)
-        self.visual.draw_stats()
-        self.visual.update()
+        self.draw_stats()
+        self.keys_pressed = self.visual.update()
         pygame.time.delay(int(pause_time * 1000))
+
+    def draw_stats(self):
+        label_string = []
+        data_string = []
+
+        # Time
+        label_string.append("time")
+        data_string.append(f"{self.boat.time:.1f}")
+
+        # pos_offline
+        line = self.mission.survey_lines[self.mission.last_line]
+        pos_xy = np.hstack((self.boat.pos["x"], self.boat.pos["y"])).reshape(1, 2)
+        downline_pos, offline_pos = self.mission.xy_to_downline_offline(
+            pos_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]
+        )
+        label_string.append("offline")
+        data_string.append(f"{offline_pos[0]:+.2f}")
+
+        # vel_downline (delta)
+        vel_xy = np.hstack(
+            (self.boat.vel_world["x"], self.boat.vel_world["y"])
+        ).reshape(1, 2)
+        downline_vel, offline_vel = self.mission.xy_to_downline_offline(
+            vel_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]], True
+        )
+        label_string.append("vel_line")
+        delta_vel_downline = downline_vel - line["speed"]
+        data_string.append(f"{downline_vel[0]:.2f} ({delta_vel_downline[0]:+.2f})")
+
+        # fitness
+        label_string.append("Fitness")
+        data_string.append(f"{self.mission.fitness_score[0]:.1f}")
+
+        # draw all labels
+        self.visual.draw_stats(label_string, data_string)
 
     def draw_boat(self):
         boat_poly = self.boat.get_boat_polygon(
@@ -45,11 +104,14 @@ class simulator:
         self.visual.draw_boat(boat_poly, self.boat.color)
 
     def draw_mission(self):
-        for line in self.mission.survey_lines:
+        for line_num, line in enumerate(self.mission.survey_lines):
+            highlight_line = False
+            if line_num == self.mission.last_line:
+                highlight_line = True
             line_points = np.array(
                 [[line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]]
             )
-            self.visual.draw_mission(line_points)
+            self.visual.draw_mission(line_points, highlight_line)
 
     def draw_boat_path(self):
         boat_path = self.boat.history[:, [1, 2]]
@@ -59,8 +121,8 @@ class simulator:
 class pygamevisual:
     def __init__(
         self,
-        size=[1000, 1000],
-        hfov=20,
+        size=[1200, 1000],
+        hfov=24,
         cam_pos=[0, 0],
         grid=1,
         grid_color=[0, 0, 50],
@@ -68,6 +130,7 @@ class pygamevisual:
         bg_color=[200, 200, 200],
         boat_scale=1,
         mission_line_color=(255, 255, 255),
+        mission_line_color_highlight=(200, 100, 0),
         mission_line_width=5,
         boat_history_color=(100, 100, 255),
         boat_history_width=4,
@@ -81,6 +144,7 @@ class pygamevisual:
         self.bg_color = bg_color
         self.boat_scale = boat_scale
         self.mission_line_color = mission_line_color
+        self.mission_line_color_highlight = mission_line_color_highlight
         self.mission_line_width = mission_line_width
         self.boat_history_color = boat_history_color
         self.boat_history_width = boat_history_width
@@ -93,11 +157,14 @@ class pygamevisual:
         self.draw_grid()
 
     def update(self):
-        # self.keys = pygame.key.get_pressed()
+        keys_pressed = pygame.key.get_pressed()
+
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+
+        return keys_pressed
 
     def initialize_window(self):
         pygame.init()
@@ -159,14 +226,14 @@ class pygamevisual:
         poly_game = self.world_to_game(poly.T)
         pygame.draw.polygon(self.win, boatcolor, poly_game)
 
-    def draw_mission(self, line_points):
+    def draw_mission(self, line_points, highlight_line):
         line_points_game = self.world_to_game(line_points)
+        if highlight_line:
+            color = self.mission_line_color_highlight
+        else:
+            color = self.mission_line_color
         pygame.draw.lines(
-            self.win,
-            self.mission_line_color,
-            False,
-            line_points_game,
-            self.mission_line_width,
+            self.win, color, False, line_points_game, self.mission_line_width,
         )
 
     def draw_boat_path(self, boat_path):
@@ -182,52 +249,22 @@ class pygamevisual:
     def add_text_rect(self, pos, textstr):
         pygame.draw.rect(self.win, (200, 200, 200), pos, 0)
         pygame.draw.rect(self.win, (0, 0, 0), pos, 3)
-        font = pygame.font.Font(None, 30)
+        font = pygame.font.Font(None, 24)
         text = font.render(textstr, True, (0, 0, 0))
         text_rect = text.get_rect(center=(pos[0] + pos[2] / 2, pos[1] + pos[3] / 2))
         self.win.blit(text, text_rect)
 
-    def draw_stats(self):
-        # TODO pass in stats as argument
-        # TODO add self (x,y) position for throttle and stats
-        # TODO show fitness score
-        # TODO show neural network input variables
-
-        # Time
-        t = np.random.rand(1)[0] * 3000
-        self.add_text_rect([120, 0, 40, 40], f"t")
-        self.add_text_rect([160, 0, 160, 40], f"{t:.1f}s")
-
-        # Velocity magnitude (relative magnitude)
-        pos = [160, 40, 160, 40]
-        v_mag = np.random.rand(1)[0] * 3
-        v_mag_rel = np.random.rand(1)[0] * 3
-        self.add_text_rect([120, 40, 40, 40], f"|V|")
-        self.add_text_rect(pos, f"{v_mag:.1f} ({v_mag_rel:.1f})")
-
-        # World X (relative X)
-        pos = [160, 80, 160, 40]
-        v_x = np.random.randn(1)[0] * 3
-        v_x_rel = np.random.randn(1)[0] * 3
-        self.add_text_rect([120, 80, 40, 40], f"Vx")
-        self.add_text_rect(pos, f"{v_x:+.1f} ({v_x_rel:+.1f})")
-
-        # World Y (relative Y)
-        pos = [160, 120, 160, 40]
-        v_y = np.random.randn(1)[0] * 3
-        v_y_rel = np.random.randn(1)[0] * 3
-        self.add_text_rect([120, 120, 40, 40], f"Vy")
-        self.add_text_rect(pos, f"{v_y:+.1f} ({v_y_rel:+.1f})")
-
-        # World position
-        fitness = np.random.rand(1)[0] * 3000
-        self.add_text_rect([120, 160, 40, 40], f"F")
-        self.add_text_rect([160, 160, 160, 40], f"{fitness:.2f}")
-        pass
+    def draw_stats(self, label_str, data_str):
+        y_top = 200
+        y_height = 30
+        for label, data in zip(label_str, data_str):
+            self.add_text_rect([0, y_top, 80, y_height], label)
+            self.add_text_rect([80, y_top, 120, y_height], data)
+            y_top += y_height
 
     def draw_boat_throttle(self, boat_throttle):
         # draw subwindow
-        sub_window_width = 120
+        sub_window_width = 200
         sub_window_height = 200
         pygame.draw.rect(
             self.win, (200, 200, 200), (0, 0, sub_window_width, sub_window_height), 0
@@ -238,8 +275,8 @@ class pygamevisual:
         text_height = 40
 
         # draw throttle boxes
-        BARWIDTH = 40
         BARPAD = 10
+        BARWIDTH = sub_window_width / 2 - BARPAD * 2
         throttle_box_range = sub_window_height / 2 - text_height / 2 - BARPAD
         throttle_box_height = np.array(boat_throttle) * throttle_box_range / 100
         bar_x_center = [sub_window_width * 0.25, sub_window_width * 0.75]
@@ -295,33 +332,30 @@ if __name__ == "__main__":
     my_visual = pygamevisual()
 
     my_boat = boat.boat()
-    # x = np.array([-0.5,-0.5,-0.35,-0.2,-0.2,0.2,0.2,0.35,0.5,0.5,0.2,0.2,-0.2,-0.2,-0.5])*0.7
-    # y = np.array([-0.5,0.4,0.5,0.4,0,0,0.4,0.5,0.4,-0.5,-0.5,0,0,-0.5,-0.5])
-    # my_boat.hullshape=np.array([x,y])
-    my_boat.hullshape = my_boat.hullshape * np.array([0.3, 0.5]).reshape(2, 1)
+    x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
+    y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
+    my_boat.hullshape = np.array([x, y])
+    # my_boat.hullshape = my_boat.hullshape * np.array([0.3, 0.5]).reshape(2, 1)
     mission_name = (
         "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
     )
     my_mission = mission.mission(
-        waypoint_filename=mission_name, fitness_spacing=0.1, offline_importance=0.5,
+        waypoint_filename=mission_name, fitness_spacing=0.5, offline_importance=0.5,
     )
 
     my_environment = environment.environment()
-    my_environment.get_currents = lambda xy: [0.1, 0.01]
+    my_environment.get_currents = lambda xy: [0, 0]
     my_simulator = simulator(
-        boat=my_boat,
-        mission=my_mission,
-        environment=my_environment,
-        visual=my_visual,
-        show_visual=True,
+        boat=my_boat, mission=my_mission, environment=my_environment, visual=my_visual,
     )
 
     for x in range(1000):
         if my_simulator.visual.running:
-            my_visual.cam_pos = np.hstack((my_boat.pos["x"], my_boat.pos["y"]))
-            # my_visual.cam_pos = [0, 0]
-
-            my_boat.throttle = ((2 * np.random.rand(2, 1) - 1) * 100).squeeze()
+            # my_boat.throttle = ((2 * np.random.rand(2, 1) - 1) * 100).squeeze()
+            my_simulator.set_boat_control([60, 60])
 
             my_simulator.update_boat(1, 10)
-            my_simulator.update_visual(0.0001)
+            my_simulator.update_visual(0.01)
+            if my_simulator.keys_pressed[pygame.K_LEFT]:
+                print("LEFT")
+    print(my_simulator.get_fitness())

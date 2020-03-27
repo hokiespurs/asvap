@@ -93,7 +93,7 @@ class mission:
                     pos_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]
                 )
                 downline_vel, offline_vel = self.xy_to_downline_offline(
-                    vel_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]
+                    vel_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]], True
                 )
 
                 min_downline = np.min(downline_pos)
@@ -168,13 +168,15 @@ class mission:
             plt.plot(x, y, ".-")
 
     @staticmethod
-    def xy_to_downline_offline(
-        xy, p1, p2,
-    ):
+    def xy_to_downline_offline(xy, p1, p2, do_vel=False):
         az = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
 
-        downline = (xy[:, 0] - p1[0]) * np.cos(az) + (xy[:, 1] - p1[1]) * np.sin(az)
-        offline = (xy[:, 0] - p1[0]) * -np.sin(az) + (xy[:, 1] - p1[1]) * np.cos(az)
+        if do_vel:
+            downline = (xy[:, 0]) * np.cos(az) + (xy[:, 1]) * np.sin(az)
+            offline = (xy[:, 0]) * -np.sin(az) + (xy[:, 1]) * np.cos(az)
+        else:
+            downline = (xy[:, 0] - p1[0]) * np.cos(az) + (xy[:, 1] - p1[1]) * np.sin(az)
+            offline = (xy[:, 0] - p1[0]) * -np.sin(az) + (xy[:, 1] - p1[1]) * np.cos(az)
 
         return (downline, offline)
 

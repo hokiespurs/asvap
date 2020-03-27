@@ -20,7 +20,7 @@ class boat:
         thrust_function=lambda x: x / 20,
         friction_function=lambda friction, vel: friction * vel * 3,
         friction_function_rotation=lambda friction, vel: friction * vel / 200 * 3,
-        max_num_history=10000,
+        max_num_history=100000,
     ):
         # kinematics
         self.time = time
