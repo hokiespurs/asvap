@@ -73,6 +73,7 @@ class mission:
 
     # @profile
     def get_fitness(self, boat, max_line=np.inf, max_skip_gate=10, max_back_gate=3):
+        # TODO: This code is a jumbled mess
         """update and return fitness of the boat on the mission"""
         # only look at new x,y,z points that haven't been evlauated
         last_ind = self.__last_fitness_ind
