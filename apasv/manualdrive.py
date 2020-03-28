@@ -102,7 +102,7 @@ for x in range(10000):
         current_throttle = update_throttle(my_simulator.keys_pressed, current_throttle)
         my_simulator.set_boat_control(current_throttle)
 
-        my_simulator.update_boat(BOAT_TIMESTEP, 20)
+        my_simulator.update_boat(BOAT_TIMESTEP, 10)
         my_simulator.update_visual(VISUAL_DELAY)
 
 print(my_simulator.get_fitness())

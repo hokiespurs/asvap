@@ -244,7 +244,7 @@ class boat:
         """ plot a line of where the boat has been """
         x_plot = self.history[:, 1]
         y_plot = self.history[:, 2]
-        ax.plot(x_plot, y_plot, color=line_color, linewidth=line_width)
+        ax.plot(x_plot, y_plot, ".-", color=line_color, linewidth=line_width)
 
     def get_boat_polygon(self, boat_pos=None, scale=1):
         if boat_pos is None:

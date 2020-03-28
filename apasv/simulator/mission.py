@@ -225,6 +225,12 @@ class fitness:
                 is_more_data = new_pos_xy.shape[0] > 0
                 if is_more_data:  # go to next gate
                     self.current_gate_num += 1
+            elif (
+                first_pass and self.all_gate_fitness[self.current_gate_num]["npts"] > 0
+            ):
+                # if the last update ended without going to a new gate
+                # but new data started in new gate
+                self.current_gate_num += 1
             else:  # got to a gate with no data
                 return
         self.mission_complete = True
@@ -372,6 +378,7 @@ class fitness:
         return (1 / (sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 
+# @profile
 def main():
     survey_line_filename = (
         "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
@@ -406,20 +413,20 @@ def main():
             myboat.throttle = [80, 40]
         elif t == 82:
             myboat.throttle = [80, 80]
-        myboat.update_position(1, 100)
+        myboat.update_position(1, 10)
 
         pos_xy = myboat.history[:, [1, 2]]
         vel_xy = myboat.history[:, [4, 5]]
 
         my_fitness.update_fitness(pos_xy, vel_xy)
 
-    # fig, ax = plt.subplots()
-    # my_mission.plot_survey_lines(ax)
-    # myboat.plot_history_line(ax)
-    # my_fitness.plot_gates(ax)
-    # ax.set_aspect("equal", "box")
+    fig, ax = plt.subplots()
+    my_mission.plot_survey_lines(ax)
+    myboat.plot_history_line(ax)
+    my_fitness.plot_gates(ax)
+    ax.set_aspect("equal", "box")
 
-    # plt.show()
+    plt.show()
 
 
 if __name__ == "__main__":

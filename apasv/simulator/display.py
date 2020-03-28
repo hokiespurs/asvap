@@ -21,7 +21,7 @@ class display:
         mission_line_width=5,
         boat_history_color=(100, 100, 255),
         boat_history_width=4,
-        boat_history_max_num=100000,
+        boat_history_max_num=3000,
     ):
         self.size = np.array(size)
         self.hfov = hfov
