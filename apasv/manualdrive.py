@@ -6,7 +6,7 @@ from simulator import boat, display, environment, mission, simulator
 # CONSTANTS
 THROTTLE_STEP = 5
 BOAT_TIMESTEP = 0.1
-VISUAL_DELAY = 0.1
+VISUAL_DELAY = 0.01
 
 key_list = {
     "left_throttle_up": pygame.K_q,
@@ -85,14 +85,13 @@ my_boat.hullshape = np.array([x, y])
 mission_name = (
     "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
 )
-my_mission = mission.mission(
-    waypoint_filename=mission_name, fitness_spacing=0.5, offline_importance=0.5,
-)
-
+my_mission = mission.mission(survey_line_filename=mission_name)
+my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.5)
+# my_fitness.current_gate_num = 10
 my_environment = environment.environment()
 my_environment.get_currents = lambda xy: [-1, 0]
 my_simulator = simulator.simulator(
-    boat=my_boat, mission=my_mission, environment=my_environment, visual=my_visual,
+    boat=my_boat, environment=my_environment, visual=my_visual, fitness=my_fitness,
 )
 
 
@@ -103,7 +102,7 @@ for x in range(10000):
         current_throttle = update_throttle(my_simulator.keys_pressed, current_throttle)
         my_simulator.set_boat_control(current_throttle)
 
-        my_simulator.update_boat(BOAT_TIMESTEP, 10)
+        my_simulator.update_boat(BOAT_TIMESTEP, 20)
         my_simulator.update_visual(VISUAL_DELAY)
 
 print(my_simulator.get_fitness())

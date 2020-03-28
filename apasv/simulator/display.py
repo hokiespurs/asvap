@@ -1,5 +1,6 @@
 import numpy as np
 import pygame
+from time import process_time
 
 
 class display:
@@ -20,6 +21,7 @@ class display:
         mission_line_width=5,
         boat_history_color=(100, 100, 255),
         boat_history_width=4,
+        boat_history_max_num=100000,
     ):
         self.size = np.array(size)
         self.hfov = hfov
@@ -34,17 +36,24 @@ class display:
         self.mission_line_width = mission_line_width
         self.boat_history_color = boat_history_color
         self.boat_history_width = boat_history_width
+        self.boat_history_max_num = boat_history_max_num
         self.cam_pos = np.array(cam_pos)
         self.running = True
         self.initialize_window()
 
+        self.last_update_time = 0
+        self.fps = 0
+
     def draw_background(self):
         self.win.fill(self.bg_color)
-        self.draw_grid()
 
     def update(self):
         keys_pressed = pygame.key.get_pressed()
-
+        dt = process_time() - self.last_update_time
+        if dt == 0:
+            dt = 0.01
+        self.fps = (self.fps) * 0.99 + (1 / (dt)) * 0.01
+        self.last_update_time = process_time()
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -112,6 +121,10 @@ class display:
         poly_game = self.world_to_game(poly.T)
         pygame.draw.polygon(self.win, boatcolor, poly_game)
 
+    def draw_gate(self, poly, color):
+        poly_game = self.world_to_game(poly.T)
+        pygame.draw.polygon(self.win, color, poly_game)
+
     def draw_mission(self, line_points, highlight_line):
         line_points_game = self.world_to_game(line_points)
         if highlight_line:
@@ -123,7 +136,11 @@ class display:
         )
 
     def draw_boat_path(self, boat_path):
-        boat_path_game = self.world_to_game(boat_path)
+        max_num = self.boat_history_max_num
+        if boat_path.shape[0] > max_num:
+            boat_path_game = self.world_to_game(boat_path[-max_num:, :])
+        else:
+            boat_path_game = self.world_to_game(boat_path)
         pygame.draw.lines(
             self.win,
             self.boat_history_color,

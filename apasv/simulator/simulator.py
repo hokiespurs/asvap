@@ -1,24 +1,22 @@
 import numpy as np
-
-
 import pygame
 
 
 class simulator:
-    def __init__(self, boat, mission, environment, visual):
+    def __init__(self, boat, environment, visual, fitness):
         self.boat = boat
-        self.mission = mission
         self.environment = environment
         self.visual = visual
+        self.fitness = fitness
         self.keys_pressed = None
 
     def get_fitness(self):
         """ Get the fitness of the boat on the mission """
-        return self.mission.fitness_score
+        return self.fitness.current_fitness
 
     def get_mission_waypoints(self):
         """ return the mission """
-        return self.mission.survey_lines
+        return self.fitness.mission.survey_lines
 
     def get_boat_data(self):
         """ Return Data from the Boat that the autopilot could use """
@@ -43,7 +41,9 @@ class simulator:
     def update_boat(self, t, n):
         """ update the boat position for t seconds using n steps """
         self.boat.update_position(t, n, self.environment.get_currents)
-        self.mission.get_fitness(self.boat)
+        pos_xy = self.boat.history[:, [1, 2]]
+        vel_xy = self.boat.history[:, [4, 5]]
+        self.fitness.update_fitness(pos_xy, vel_xy)
 
     def update_visual(self, pause_time=0.1):
         """ Update the pygame visual """
@@ -52,6 +52,8 @@ class simulator:
             (self.boat.pos["x"] - cam_offset, self.boat.pos["y"])
         )
         self.visual.draw_background()
+        self.draw_gate()
+        self.visual.draw_grid()
         self.draw_mission()
         self.draw_boat_path()
         self.draw_boat()
@@ -69,10 +71,10 @@ class simulator:
         data_string.append(f"{self.boat.time:.1f}")
 
         # pos_offline
-        line = self.mission.survey_lines[self.mission.last_line]
+        line = self.fitness.mission.survey_lines[self.fitness.current_survey_line]
         pos_xy = np.hstack((self.boat.pos["x"], self.boat.pos["y"])).reshape(1, 2)
-        downline_pos, offline_pos = self.mission.xy_to_downline_offline(
-            pos_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]
+        downline_pos, offline_pos = self.fitness.xy_to_downline_offline(
+            pos_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]]
         )
         label_string.append("offline")
         data_string.append(f"{offline_pos[0]:+.2f}")
@@ -81,16 +83,20 @@ class simulator:
         vel_xy = np.hstack(
             (self.boat.vel_world["x"], self.boat.vel_world["y"])
         ).reshape(1, 2)
-        downline_vel, offline_vel = self.mission.xy_to_downline_offline(
-            vel_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]], True
+        downline_vel, offline_vel = self.fitness.xy_to_downline_offline(
+            vel_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]], True
         )
         label_string.append("vel_line")
-        delta_vel_downline = downline_vel - line["speed"]
+        delta_vel_downline = downline_vel - line["goal_speed"]
         data_string.append(f"{downline_vel[0]:.2f} ({delta_vel_downline[0]:+.2f})")
 
         # fitness
         label_string.append("Fitness")
-        data_string.append(f"{self.mission.fitness_score[0]:.1f}")
+        data_string.append(f"{self.fitness.current_fitness:.1f}")
+
+        # fitness
+        label_string.append("fps")
+        data_string.append(f"{self.visual.fps:.1f}")
 
         # draw all labels
         self.visual.draw_stats(label_string, data_string)
@@ -102,14 +108,42 @@ class simulator:
         self.visual.draw_boat(boat_poly, self.boat.color)
 
     def draw_mission(self):
-        for line_num, line in enumerate(self.mission.survey_lines):
+        for line_num, line in enumerate(self.fitness.mission.survey_lines):
             highlight_line = False
-            if line_num == self.mission.last_line:
+            if line_num == self.fitness.current_survey_line:
                 highlight_line = True
             line_points = np.array(
-                [[line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]]
+                [[line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]]]
             )
             self.visual.draw_mission(line_points, highlight_line)
+
+    def draw_gate(self):
+        NOLDGATE = 5
+        Rold = np.linspace(215, self.visual.bg_color[0], NOLDGATE)
+        Gold = np.linspace(151, self.visual.bg_color[1], NOLDGATE)
+        Bold = np.linspace(151, self.visual.bg_color[2], NOLDGATE)
+
+        NFUTUREGATE = 5
+        Rfuture = np.linspace(150, self.visual.bg_color[0], NFUTUREGATE)
+        Gfuture = np.linspace(180, self.visual.bg_color[1], NFUTUREGATE)
+        Bfuture = np.linspace(215, self.visual.bg_color[2], NFUTUREGATE)
+
+        for i, gate in enumerate(self.fitness.all_gate):
+            d_gate = i - self.fitness.current_gate_num
+            if d_gate == 0:
+                color = [198, 215, 150]
+            elif d_gate < 0 and d_gate >= -NOLDGATE:  # Old
+                color = [
+                    Rold[-d_gate - 1],
+                    Gold[-d_gate - 1],
+                    Bold[-d_gate - 1],
+                ]
+            elif d_gate > 0 and d_gate <= NFUTUREGATE:  # Future
+                color = [Rfuture[d_gate - 1], Gfuture[d_gate - 1], Bfuture[d_gate - 1]]
+            else:
+                continue
+
+            self.visual.draw_gate(gate["gate_xy_polygon"].T, color)
 
     def draw_boat_path(self):
         boat_path = self.boat.history[:, [1, 2]]
@@ -132,14 +166,13 @@ if __name__ == "__main__":
     mission_name = (
         "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
     )
-    my_mission = mission.mission(
-        waypoint_filename=mission_name, fitness_spacing=0.5, offline_importance=0.5,
-    )
-
+    my_mission = mission.mission(survey_line_filename=mission_name)
+    my_fitness = mission.fitness(my_mission, gate_length=0.5, offline_importance=0.5)
+    my_fitness.current_gate_num = 15
     my_environment = environment.environment()
     my_environment.get_currents = lambda xy: [0, 0]
     my_simulator = simulator(
-        boat=my_boat, mission=my_mission, environment=my_environment, visual=my_visual,
+        boat=my_boat, fitness=my_fitness, environment=my_environment, visual=my_visual,
     )
 
     for x in range(1000):
@@ -148,7 +181,7 @@ if __name__ == "__main__":
             my_simulator.set_boat_control([60, 60])
 
             my_simulator.update_boat(1, 10)
-            my_simulator.update_visual(0.01)
+            my_simulator.update_visual(0.1)
             if my_simulator.keys_pressed[pygame.K_LEFT]:
                 print("LEFT")
     print(my_simulator.get_fitness())
