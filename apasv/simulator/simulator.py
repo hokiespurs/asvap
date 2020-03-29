@@ -23,14 +23,13 @@ class simulator:
         # use a dictionary so its more intuitive in autopilot code
         # pos x,y,az
         # vel x,y,az
-
         boat_data = {
-            "x": self.boat.pos["x"][0],
-            "y": self.boat.pos["y"][0],
-            "az": self.boat.pos["az"][0],
-            "vx": self.boat.vel_world["x"][0],
-            "vy": self.boat.vel_world["y"][0],
-            "vaz": self.boat.vel_world["az"][0],
+            "x": self.boat.pos["x"],
+            "y": self.boat.pos["y"],
+            "az": self.boat.pos["az"],
+            "vx": self.boat.vel_world["x"],
+            "vy": self.boat.vel_world["y"],
+            "vaz": self.boat.vel_world["az"],
         }
         return boat_data
 
@@ -44,6 +43,9 @@ class simulator:
         pos_xy = self.boat.history[:, [1, 2]]
         vel_xy = self.boat.history[:, [4, 5]]
         self.fitness.update_fitness(pos_xy, vel_xy)
+
+    def update_just_key_input(self):
+        self.keys_pressed = self.visual.update()
 
     def update_visual(self, pause_time=0.1):
         """ Update the pygame visual """
@@ -61,6 +63,19 @@ class simulator:
         self.draw_stats()
         self.keys_pressed = self.visual.update()
         pygame.time.delay(int(pause_time * 1000))
+
+    def update_visual_noblit(self, pause_time=0.1):
+        """ Update the pygame visual """
+        self.visual.draw_background()
+        self.draw_gate()
+        self.visual.draw_grid()
+        self.draw_mission()
+        self.draw_boat_path()
+        self.draw_boat()
+        self.visual.draw_boat_throttle(self.boat.throttle)
+        self.draw_stats()
+        # self.keys_pressed = self.visual.update()
+        # pygame.time.delay(int(pause_time * 1000))
 
     def draw_stats(self):
         label_string = []
@@ -92,7 +107,13 @@ class simulator:
 
         # fitness
         label_string.append("Fitness")
-        data_string.append(f"{self.fitness.current_fitness:.1f}")
+        if self.fitness.current_gate_num == 0:
+            avg_per_gate = 0
+        else:
+            avg_per_gate = self.fitness.current_fitness / (
+                self.fitness.current_gate_num
+            )
+        data_string.append(f"{self.fitness.current_fitness:.1f} ({avg_per_gate:.2f})")
 
         # fitness
         label_string.append("fps")

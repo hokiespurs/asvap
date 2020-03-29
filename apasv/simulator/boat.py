@@ -128,23 +128,26 @@ class boat:
     @staticmethod
     def local_to_world_coords(xy, local_az):
         """ converts from local coordinates to world coordinates """
-
-        azrad = np.deg2rad(-local_az)
-        R_local_to_world = np.array(
-            [[np.cos(azrad), -1 * np.sin(azrad)], [np.sin(azrad), np.cos(azrad)]]
-        )
-        world_xy = R_local_to_world.dot(np.array([xy[0], xy[1]]).reshape(2, 1))
-        return [world_xy[0], world_xy[1]]
+        # * note these equations are not normal rotation matrix...
+        # azimuth is off by 90 degrees and reversed to trig used trig identities
+        # instead of subtracting pi/2 every time
+        cos = np.cos(-local_az * np.pi / 180)
+        sin = np.sin(-local_az * np.pi / 180)
+        world_x = xy[0] * cos + xy[1] * -sin
+        world_y = xy[0] * sin + xy[1] * cos
+        return [world_x, world_y]
 
     @staticmethod
     def world_to_local_coords(xy, local_az):
         """ converts from world coordinates to local coordinates """
-        azrad = -np.deg2rad(-local_az)
-        R_world_to_local = np.array(
-            [[np.cos(azrad), -1 * np.sin(azrad)], [np.sin(azrad), np.cos(azrad)]]
-        )
-        local_xy = R_world_to_local.dot(np.array([xy[0], xy[1]]).reshape(2, 1))
-        return [local_xy[0], local_xy[1]]
+        # * note these equations are not normal rotation matrix...
+        # azimuth is off by 90 degrees and reversed to trig used trig identities
+        # instead of subtracting pi/2 every time
+        cos = np.cos(local_az * np.pi / 180)
+        sin = np.sin(local_az * np.pi / 180)
+        local_x = xy[0] * cos + xy[1] * -sin
+        local_y = xy[0] * sin + xy[1] * cos
+        return [local_x, local_y]
 
     def update_position(self, time_step, num_dt, vel_water_function=lambda xy: (0, 0)):
         """ Update the position of the boat """
@@ -237,7 +240,9 @@ class boat:
                 self.pos["az"] -= 360
 
             # -------------------- UPDATE HISTORY --------------
-            self.time = np.round(self.time + dt, 6)  # avoid 0.99999999 LSB errors
+            # faster round
+            self.time = int((self.time + dt) * (10 ** 6)) / (10.0 ** 6)
+            # self.time = np.round(self.time + dt, 6)  # avoid 0.99999999 LSB errors
             self._update_history()
 
     def plot_history_line(self, ax, line_color="b", line_width=1):

@@ -78,18 +78,26 @@ def update_throttle(keys_pressed, cur_throttle):
 my_visual = display.display()
 
 my_boat = boat.boat(friction=[1, 1, 5, 50])
-x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
-y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
-my_boat.hullshape = np.array([x, y])
-# my_boat.hullshape = my_boat.hullshape * np.array([0.3, 0.5]).reshape(2, 1)
+# x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
+# y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
+# my_boat.hullshape = np.array([x, y])
+my_boat.hullshape = my_boat.hullshape * np.array([0.3, 0.5]).reshape(2, 1)
 mission_name = (
     "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
 )
 my_mission = mission.mission(survey_line_filename=mission_name)
 my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.5)
-# my_fitness.current_gate_num = 10
+
+
+def currents(xy):
+    if xy[1] > 40:
+        return [-1, 0]
+    else:
+        return [0, 0]
+
+
 my_environment = environment.environment()
-my_environment.get_currents = lambda xy: [-1, 0]
+my_environment.get_currents = currents
 my_simulator = simulator.simulator(
     boat=my_boat, environment=my_environment, visual=my_visual, fitness=my_fitness,
 )

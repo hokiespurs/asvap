@@ -245,7 +245,7 @@ class fitness:
         # Calculate fitness for every sample
         gate = self.all_gate[self.current_gate_num]
         offline_fitness = self.gaussfun(offline, 0, gate["offline_std"])
-        velocity_fitness = self.gaussfun(offline, 0, gate["offline_std"])
+        velocity_fitness = self.gaussfun(velocity, 0, gate["speed_error_std"])
 
         total_fitness = offline_fitness * self.offline_importance + velocity_fitness * (
             1 - self.offline_importance
@@ -375,7 +375,7 @@ class fitness:
 
     @staticmethod
     def gaussfun(x, mu, sigma):
-        return (1 / (sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        return np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 
 # @profile
@@ -425,22 +425,15 @@ def main():
     myboat.plot_history_line(ax)
     my_fitness.plot_gates(ax)
     ax.set_aspect("equal", "box")
-
+    ax.set_title(f"Fitness = {my_fitness.current_fitness:.2f}")
     plt.show()
 
 
 if __name__ == "__main__":
-    # ".\env\Scripts\kernprof.exe" -l -v ".\apasv\simulator\mission.py" > .\test2.txt
+    # add @profile above the function you want to profile
+    # Then call this script from the command line
+    # ".\env\Scripts\kernprof.exe" -l -v ".\apasv\simulator\mission.py" > .\profiler.txt
     t1 = process_time()
     main()
     t2 = process_time()
     print(t2 - t1)
-
-
-# # %%
-# downline_pos, offline_pos = self.xy_to_downline_offline(
-#     pos_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]]
-# )
-# downline_vel, offline_vel = self.xy_to_downline_offline(
-#     vel_xy, [line["P1x"], line["P1y"]], [line["P2x"], line["P2y"]], True
-# )
