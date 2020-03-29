@@ -3,7 +3,7 @@ import numpy as np
 # lets the code call neural network from scripts outside this folder
 try:
     import neuralnetwork
-except:
+except ImportError:
     from autopilot import neuralnetwork
 
 

@@ -1,37 +1,43 @@
 import numpy as np
 import sys
+from os import system
 from simulator import boat, display, environment, mission, simulator
 from autopilot import autopilot
 from time import process_time
+import time
 import datetime
 from copy import deepcopy
 
 sys.path.insert(0, "../autopilot")
 
-DEBUG = True
-DEBUG_DELAY = 0.5
-# CONSTANTS
-NTEST = int(1e7)
+DEBUG = False
+DEBUG_DELAY = 0.015
+# ------------------- CONSTANTS ----------------------------------
+PARALLEL_CHUNK_SIZE = 100
+NUM_BEST = 20
+# random seed
 RAND_SEED = 14  # random seed to start building random boats
+NTEST = int(1e7)
+# boat position
 START_POSITION = [0, 0, 10]  # x,y,az
-NUM_NODES = [20, 20]
-ACTIVATION = ["sigmoid", "sigmoid", "sigmoid"]
-WEIGHT_SCALE = 3
-BIAS_SCALE = 3
-WEIGHT_METHOD = "randn"
-BIAS_METHOD = "randn"
-BOAT_TIMESTEP = 1
+BOAT_TIMESTEP = 0.1
 NUM_SUBSTEPS = 10
-MAX_TIME = 500
+MAX_TIME = 200
 CUTOFFS = [[3, 0.1], [10, 4], [30, 10], [40, 15]]  # [time,fitness]
 MISSION_NAME = (
     "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
 )
+# neural net
+NUM_NODES = [20, 20]
+ACTIVATION = ["sigmoid", "sigmoid", "sigmoid"]
+WEIGHT_SCALE = 1
+BIAS_SCALE = 1
+WEIGHT_METHOD = "randn"
+BIAS_METHOD = "randn"
 
 # create random seeds
 np.random.seed(RAND_SEED)
 all_rand_seed = np.random.choice(NTEST, NTEST, replace=False)
-all_rand_seed[0] = all_rand_seed[2370]
 # create mission and environment
 if DEBUG:
     my_visual = display.display()  # debugging visual
@@ -90,16 +96,16 @@ def run_simulation(rand_seed):
 
     time_to_run = process_time() - t_start
     percent_complete = 100 * my_fitness.current_gate_num / len(my_fitness.all_gate)
-    time_str_format = datetime.datetime.now().strftime("%m/%d %H:%M %p")
+    t_time = time.time()
     fitness_score = my_simulator.get_fitness()
-    return (
+    return [
+        rand_seed,
         fitness_score,
         percent_complete,
-        rand_seed,
-        time_str_format,
-        time_to_run,
         my_boat.time,
-    )
+        t_time,
+        time_to_run,
+    ]
 
 
 def is_cutoffs_good(is_cutoff_checked, t, fitness):
@@ -110,13 +116,72 @@ def is_cutoffs_good(is_cutoff_checked, t, fitness):
     return True
 
 
+def update_best_list(sim_data=None, best_list=None, run_ind=0):
+    """ update or create the list of best performing boats """
+    # rand_seed, fitness_score, percent_complete, boat_time, datetime_str, time_to_run
+    if sim_data is None and best_list is None:
+        # preallocate list
+        best_list = np.zeros((NUM_BEST, 6))
+
+    elif sim_data is None:
+        # no data passed for some reason
+        print("No Data Added??")
+    else:
+        if sim_data[1] > best_list[-1, 1]:
+            best_list[-1, :] = sim_data
+            sorted_ind = np.argsort(best_list[:, 1])
+            best_list = np.flipud(best_list[sorted_ind, :])
+            print_best_list(best_list)
+        else:
+            print_sim_results(sim_data, docr=False, rank=run_ind)
+    return best_list
+
+
+def print_sim_results(sim_data, docr=True, rank=0):
+    """ Print results to screen """
+    tstr = datetime.datetime.fromtimestamp(sim_data[4]).strftime("%m/%d %H:%M %p")
+    print_string = (
+        f" {rank+1:4.0f} |"
+        + f"{sim_data[1]:8.2f} |"
+        + f"{sim_data[2]:11.1f} |"
+        + f"{sim_data[3]:10.1f} |"
+        + f"{sim_data[0]:13.0f} |"
+        + f"{tstr:>16s} |"
+        + f"{sim_data[5]:9.3f}"
+    )
+    if docr:
+        print(print_string)
+    else:
+        print(
+            print_string, end="\r",
+        )
+
+
+def print_best_list(best_list):
+    """ Print best_list to the screen """
+    # clear screen
+    system("cls")
+    # print header
+    headerstr = (
+        " RANK | FITNESS | % COMPLETE | BOAT TIME |"
+        + "         SEED |        DATETIME | CPU TIME"
+    )
+    print(headerstr)
+    for rank, sim_data in enumerate(best_list):
+        print_sim_results(sim_data, docr=True, rank=rank)
+
+
 if __name__ == "__main__":
+    best_list = update_best_list()  # preallocate
     for i, seed in enumerate(all_rand_seed):
-        vals = run_simulation(seed)
-        if vals[0] > 50:
-            print(
-                f"{i:5.0f} | Fitness:{vals[0]:5.2f} , Percent:{vals[1]:5.2f}, t:{vals[5]:6.1f}, dt:{vals[4]:5.3f}"
-            )
+        # if PARALLEL_CHUNK_SIZE > 1:
+        #     pass
+        # else:
+        #     pass
+
+        sim_results = run_simulation(seed)
+        best_list = update_best_list(sim_results, best_list, i)
+
         if DEBUG:
             if not my_visual.running:
                 break
