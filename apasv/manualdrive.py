@@ -2,6 +2,7 @@ import numpy as np
 import pygame
 
 from simulator import boat, display, environment, mission, simulator
+from autopilot import autopilot
 
 # CONSTANTS
 THROTTLE_STEP = 5
@@ -81,12 +82,12 @@ my_boat = boat.boat(friction=[1, 1, 5, 50])
 # x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
 # y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
 # my_boat.hullshape = np.array([x, y])
-my_boat.hullshape = my_boat.hullshape * np.array([0.3, 0.5]).reshape(2, 1)
 mission_name = (
     "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
 )
 my_mission = mission.mission(survey_line_filename=mission_name)
 my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.5)
+my_autopilot = autopilot.ap_nn(my_mission.survey_lines, num_neurons=[10],)
 
 
 def currents(xy):
@@ -99,18 +100,24 @@ def currents(xy):
 my_environment = environment.environment()
 my_environment.get_currents = currents
 my_simulator = simulator.simulator(
-    boat=my_boat, environment=my_environment, visual=my_visual, fitness=my_fitness,
+    boat=my_boat,
+    environment=my_environment,
+    visual=my_visual,
+    fitness=my_fitness,
+    autopilot=my_autopilot,
 )
 
 
 current_throttle = np.array([0, 0])
 for x in range(10000):
-    if my_simulator.visual.running:
+    if my_simulator.visual.running and not my_fitness.mission_complete:
         # my_boat.throttle = ((2 * np.random.rand(2, 1) - 1) * 100).squeeze()
         current_throttle = update_throttle(my_simulator.keys_pressed, current_throttle)
         my_simulator.set_boat_control(current_throttle)
 
         my_simulator.update_boat(BOAT_TIMESTEP, 10)
+
+        my_autopilot.calc_boat_throttle(my_simulator.get_boat_data())
         my_simulator.update_visual(VISUAL_DELAY)
 
 print(my_simulator.get_fitness())

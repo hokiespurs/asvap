@@ -22,8 +22,7 @@ mission_name = (
 my_mission = mission.mission(survey_line_filename=mission_name)
 my_environment = environment.environment()
 
-my_boat = boat.boat(friction=[1, 1, 5, 50])
-my_boat.hullshape = my_boat.hullshape * np.array([0.3, 0.5]).reshape(2, 1)
+my_boat = boat.boat(friction=[1, 1, 5, 50], color=[0.3, 0.8, 0.1])
 my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.5)
 my_simulator = simulator.simulator(
     boat=my_boat, environment=my_environment, visual=my_visual, fitness=my_fitness,
@@ -80,6 +79,6 @@ for x in range(1000):
         my_simulator2.draw_boat()
         my_simulator.visual.update()
         pygame.time.delay(100)
-        # my_simulator.update_just_key_input()
+        my_simulator.update_just_key_input()
 print(process_time() - t1)
-print(my_simulator.get_fitness())
+print(my_simulator2.boat.time)

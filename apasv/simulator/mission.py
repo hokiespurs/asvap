@@ -33,7 +33,7 @@ class mission:
             dist_y = survey_line_data["wp2_y"][i] - survey_line_data["wp1_y"][i]
 
             line_dist = np.sqrt(dist_x ** 2 + dist_y ** 2)
-            line_az = np.arctan2(dist_y, dist_x)
+            line_az = np.pi / 2 - np.arctan2(dist_y, dist_x)
 
             line_dictionary = {
                 "p1_x": survey_line_data["wp1_x"][i],
@@ -110,7 +110,7 @@ class fitness:
         self.current_gate_num = 0
         self.current_fitness = 0
         self.last_boat_history_ind = 0
-        self.mission_complete = True
+        self.mission_complete = False
 
     def create_gate_fitness(self):
         """ Preallocates a list of dicts for each gate """
@@ -225,6 +225,9 @@ class fitness:
                 is_more_data = new_pos_xy.shape[0] > 0
                 if is_more_data:  # go to next gate
                     self.current_gate_num += 1
+                    if self.current_gate_num >= len(self.all_gate):
+                        self.mission_complete = True
+                        return
             elif (
                 first_pass and self.all_gate_fitness[self.current_gate_num]["npts"] > 0
             ):
@@ -233,7 +236,6 @@ class fitness:
                 self.current_gate_num += 1
             else:  # got to a gate with no data
                 return
-        self.mission_complete = True
         return
 
     def update_fitness_gate(self, offline, velocity):

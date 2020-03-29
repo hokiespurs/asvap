@@ -17,6 +17,8 @@ class autopilot:
         self.current_line = 0
         self.line_finished = True  # flag to make sure the boat goes in order
         self.mission_complete = False
+        self.debug_autopilot_labels = ["AP"]
+        self.debug_autopilot_label_data = 0
 
     def make_fake_survey_line(self):
         """ Make a fake survey line for debugging """
@@ -55,6 +57,7 @@ class autopilot:
 
                 if self.current_line == len(self.survey_lines):
                     self.mission_complete = True
+                    self.current_line = len(self.survey_lines) - 1
                     return
 
         line = self.survey_lines[self.current_line]
@@ -157,17 +160,23 @@ class ap_nn(autopilot):
         # compute velocity error
         d_speed = downline_vel - self.survey_lines[self.current_line]["goal_speed"]
         # compute azimuth off line
-        boat_az = new_data["az"]
+        boat_az = new_data["az"] * np.pi / 180
         line_az = self.survey_lines[self.current_line]["az"]
         daz = boat_az - line_az
-        if daz > 180:
-            daz -= 360
-        elif daz < -180:
-            daz += 360
-
+        if daz > np.pi:
+            daz -= 2 * np.pi
+        elif daz < -np.pi:
+            daz += 2 * np.pi
         datavals = np.array(
-            [d_speed, offline_pos, np.cos(daz * np.pi / 180), np.cos(daz * np.pi / 180)]
+            [tanh(d_speed), tanh(offline_pos), np.cos(daz), np.sin(daz)]
         ).reshape(-1, 1)
+
+        # Populate debug labels
+        labels = ["tanh(dv)", "tanh(off)", "cos(daz)", "sin(daz)"]
+
+        self.debug_autopilot_labels = labels
+        self.debug_autopilot_label_data = datavals
+
         # datalabels = 0
         # datastr = 0
         return datavals
@@ -222,3 +231,19 @@ if __name__ == "__main__":
     }
     print(my_ap.calc_boat_throttle(boat_data))
     print(my_ap.calc_boat_throttle(boat_data).shape)
+
+
+def sigmoid(x, derivative=False):
+    """ Computes sigmoid function of x """
+    if derivative:
+        return sigmoid(x) * (1 - sigmoid(x))
+    else:
+        return 1 / (1 + np.exp(-x))
+
+
+def tanh(x, derivative=False):
+    """ hyperbolic tangent """
+    if derivative:
+        return 1.0 - np.tanh(x) ** 2
+    else:
+        return np.tanh(x)

@@ -1,0 +1,187 @@
+pygame 1.9.6
+Hello from the pygame community. https://www.pygame.org/contribute.html
+    0 | Fitness: 8.04 , Percent:10.00, t:  30.1, dt:0.453
+    1 | Fitness: 0.00 , Percent:10.00, t:   3.1, dt:0.047
+    2 | Fitness: 0.00 , Percent:10.00, t:   3.1, dt:0.047
+    3 | Fitness: 0.00 , Percent:10.00, t:   3.1, dt:0.047
+    4 | Fitness: 0.00 , Percent:10.00, t:   3.1, dt:0.047
+Wrote profile results to best_random.py.lprof
+Timer unit: 3.6656e-07 s
+
+Total time: 0.632152 s
+File: .\apasv\best_random.py
+Function: run_simulation at line 46
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    46                                           @profile
+    47                                           def run_simulation(rand_seed):
+    48         5         55.0     11.0      0.0      t_start = process_time()
+    49         5         29.0      5.8      0.0      was_cutoff_checked = [False] * len(CUTOFFS)
+    50         5       2290.0    458.0      0.1      my_boat = boat.boat(pos=START_POSITION)
+    51         5        454.0     90.8      0.0      my_fitness = copy(my_fitness_all)
+    52         5         19.0      3.8      0.0      my_simulator = simulator.simulator(
+    53         5         77.0     15.4      0.0          boat=my_boat, environment=my_environment, visual=my_visual, fitness=my_fitness,
+    54                                               )
+    55         5         17.0      3.4      0.0      my_autopilot = autopilot.ap_nn(
+    56         5         13.0      2.6      0.0          my_mission.survey_lines,
+    57         5         12.0      2.4      0.0          num_neurons=NUM_NODES,
+    58         5         12.0      2.4      0.0          output_softmax=False,
+    59         5         13.0      2.6      0.0          activation_function_names=ACTIVATION,  # "sigmoid", "relu", "tanh"
+    60         5         11.0      2.2      0.0          rand_seed=rand_seed,
+    61         5         10.0      2.0      0.0          rand_weights_method=WEIGHT_METHOD,  # "rand","randn","randpm"
+    62         5         11.0      2.2      0.0          rand_weights_scalar=WEIGHT_SCALE,
+    63         5         10.0      2.0      0.0          rand_biases_method=BIAS_METHOD,  # "rand","randn","randpm","zero"
+    64         5       3860.0    772.0      0.2          rand_biases_scalar=BIAS_SCALE,
+    65                                               )
+    66                                           
+    67         5         19.0      3.8      0.0      loop_criteria = True
+    68       430        985.0      2.3      0.1      while loop_criteria:
+    69       425       4883.0     11.5      0.3          boat_data = my_simulator.get_boat_data()
+    70       425     119503.0    281.2      6.9          new_throttle = my_autopilot.calc_boat_throttle(boat_data)
+    71       425       3219.0      7.6      0.2          my_simulator.set_boat_control(new_throttle)
+    72       425    1573345.0   3702.0     91.2          my_simulator.update_boat(BOAT_TIMESTEP, NUM_SUBSTEPS)
+    73                                           
+    74       425       1943.0      4.6      0.1          good_time = my_boat.time < MAX_TIME
+    75       425       1186.0      2.8      0.1          gates_left = not my_fitness.mission_complete
+    76       425       1080.0      2.5      0.1          missed_cutoff = is_cutoffs_good(
+    77       425       7469.0     17.6      0.4              was_cutoff_checked, my_boat.time, my_simulator.get_fitness()
+    78                                                   )
+    79       425       1254.0      3.0      0.1          not_ap_complete = not my_autopilot.mission_complete
+    80       425       1112.0      2.6      0.1          loop_criteria = good_time and gates_left and missed_cutoff and not_ap_complete
+    81       425       1090.0      2.6      0.1          if DEBUG:
+    82                                                       my_simulator.update_visual(0.01)
+    83                                                       if not my_simulator.visual.running:
+    84                                                           print(my_simulator.visual.running)
+    85                                                           break
+    86                                           
+    87         5         68.0     13.6      0.0      time_to_run = process_time() - t_start
+    88         5         20.0      4.0      0.0      percent_complete = 100 * my_fitness.current_gate_num / len(my_fitness.all_gate)
+    89         5        392.0     78.4      0.0      time_str_format = datetime.datetime.now().strftime("%m/%d %H:%M %p")
+    90         5         21.0      4.2      0.0      fitness_score = my_simulator.get_fitness()
+    91                                               return (
+    92         5         10.0      2.0      0.0          fitness_score,
+    93         5         13.0      2.6      0.0          percent_complete,
+    94         5         11.0      2.2      0.0          rand_seed,
+    95         5         10.0      2.0      0.0          time_str_format,
+    96         5         10.0      2.0      0.0          time_to_run,
+    97         5         14.0      2.8      0.0          my_boat.time,
+    98                                               )
+
+Total time: 0.365132 s
+File: .\apasv\simulator\boat.py
+Function: update_position at line 152
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   152                                               @profile
+   153                                               def update_position(self, time_step, num_dt, vel_water_function=lambda xy: (0, 0)):
+   154                                                   """ Update the position of the boat """
+   155                                                   # TODO Conservation of momentum is not right...
+   156                                                   # fast current goign into no current will have a show a crazy high acceleration
+   157       425      19622.0     46.2      2.0          self._update_history_of_updates()
+   158                                                   # for the num_dt to move
+   159       425       1277.0      3.0      0.1          dt = time_step / num_dt
+   160      4675      11688.0      2.5      1.2          for t_step in range(num_dt):
+   161                                                       # TODO Fix friction forces for azimuth, ensure friction not overshooting
+   162                                                       #   eg. 50m/s v_az w/ no throttle, corrects to -10 m/s v_az from friction
+   163                                           
+   164                                                       # -------------------- ACCELERATION FROM WATER CURRENTS ----------
+   165                                                       # convert water velocity from world to boat reference frame
+   166      4250       8411.0      2.0      0.8              vel_water_world_x, vel_water_world_y = vel_water_function(
+   167      4250      18844.0      4.4      1.9                  [self.pos["x"], self.pos["y"]]
+   168                                                       )
+   169      4250      16359.0      3.8      1.6              vel_relative_world_x = self.vel_world["x"] - vel_water_world_x
+   170      4250      13700.0      3.2      1.4              vel_relative_world_y = self.vel_world["y"] - vel_water_world_y
+   171                                           
+   172      4250       9113.0      2.1      0.9              vel_relative_boat_x, vel_relative_boat_y = self.world_to_local_coords(
+   173      4250     102883.0     24.2     10.3                  [vel_relative_world_x, vel_relative_world_y], self.pos["az"]
+   174                                                       )
+   175                                           
+   176                                                       # compute friction forces due to relative water velocities
+   177                                                       # positive force is pushing in positive direction
+   178      4250       9397.0      2.2      0.9              friction_force_boat_x = self.friction_function(
+   179      4250      23795.0      5.6      2.4                  self.friction["sideways"], vel_relative_boat_x
+   180                                                       )
+   181                                           
+   182      4250      12758.0      3.0      1.3              if vel_relative_boat_y > 0:
+   183      3177       6516.0      2.1      0.7                  friction_force_boat_y = self.friction_function(
+   184      3177      16693.0      5.3      1.7                      self.friction["forwards"], vel_relative_boat_y
+   185                                                           )
+   186                                                       else:
+   187      1073       2059.0      1.9      0.2                  friction_force_boat_y = self.friction_function(
+   188      1073       5293.0      4.9      0.5                      self.friction["backwards"], vel_relative_boat_y
+   189                                                           )
+   190                                           
+   191                                                       # compute acceleration in world reference frame due to friction
+   192      4250      15739.0      3.7      1.6              accel_friction_boat_x = -friction_force_boat_x / self.mass
+   193      4250      14750.0      3.5      1.5              accel_friction_boat_y = -friction_force_boat_y / self.mass
+   194                                           
+   195      4250       9057.0      2.1      0.9              accel_friction_world_x, accel_friction_world_y = self.local_to_world_coords(
+   196      4250      94610.0     22.3      9.5                  [accel_friction_boat_x, accel_friction_boat_y], self.pos["az"]
+   197                                                       )
+   198                                           
+   199                                                       # -------------------- ACCELERATION FROM THRUSTERS ----------
+   200                                                       # compute thrust forces from each motor  ** torque == force_boat_az **
+   201                                                       # positive force is pushing in positive direction in pos and az
+   202      4250       9226.0      2.2      0.9              thrust_force_boat_y = self.thrust_function(
+   203      4250      20462.0      4.8      2.1                  self.throttle[0]
+   204      4250      23066.0      5.4      2.3              ) + self.thrust_function(self.throttle[1])
+   205                                           
+   206      4250      14628.0      3.4      1.5              accel_thrust_boat_y = thrust_force_boat_y / self.mass
+   207      4250       8556.0      2.0      0.9              accel_thrust_boat_x = 0
+   208                                           
+   209      4250       9063.0      2.1      0.9              accel_thrust_world_x, accel_thrust_world_y = self.local_to_world_coords(
+   210      4250     100612.0     23.7     10.1                  [accel_thrust_boat_x, accel_thrust_boat_y], self.pos["az"]
+   211                                                       )
+   212                                           
+   213                                                       # -------------------- COMBINE WORLD ACCELERATIONS ----------
+   214      4250      10797.0      2.5      1.1              accel_total_world_x = accel_friction_world_x + accel_thrust_world_x
+   215      4250      10063.0      2.4      1.0              accel_total_world_y = accel_friction_world_y + accel_thrust_world_y
+   216                                           
+   217                                                       # store new time, positions and velocities
+   218      4250      15948.0      3.8      1.6              self.vel_world["x"] += accel_total_world_x * dt
+   219      4250      14295.0      3.4      1.4              self.vel_world["y"] += accel_total_world_y * dt
+   220                                           
+   221      4250      15404.0      3.6      1.5              self.pos["x"] += self.vel_world["x"] * dt
+   222      4250      14947.0      3.5      1.5              self.pos["y"] += self.vel_world["y"] * dt
+   223                                           
+   224                                                       # -------------------- ROTATE BOAT --------------
+   225                                                       # compute forces influencing boat azimuth
+   226      4250       9008.0      2.1      0.9              friction_force_boat_az = self.friction_function_rotation(
+   227      4250      30090.0      7.1      3.0                  self.friction["rotation"], self.vel_world["az"]
+   228                                                       )
+   229                                           
+   230                                                       thrust_force_boat_az = (
+   231      4250      25036.0      5.9      2.5                  self.thrust_function(self.throttle[0]) / -self.thrust_x_pos[0]
+   232      4250      26571.0      6.3      2.7                  + self.thrust_function(self.throttle[1]) / -self.thrust_x_pos[1]
+   233                                                       )
+   234                                                       # compute and convert acceleration to velocity and position
+   235                                                       accel_azimuth = (
+   236      4250       9931.0      2.3      1.0                  thrust_force_boat_az - friction_force_boat_az
+   237      4250      12654.0      3.0      1.3              ) / self.rotational_mass
+   238      4250      15306.0      3.6      1.5              self.vel_world["az"] += accel_azimuth * dt
+   239      4250      15300.0      3.6      1.5              self.pos["az"] += self.vel_world["az"] * dt
+   240      4250      13892.0      3.3      1.4              if self.pos["az"] > 360:
+   241                                                           self.pos["az"] -= 360
+   242                                           
+   243                                                       # -------------------- UPDATE HISTORY --------------
+   244                                                       # faster round
+   245      4250      17559.0      4.1      1.8              self.time = int((self.time + dt) * (10 ** 6)) / (10.0 ** 6)
+   246                                                       # self.time = np.round(self.time + dt, 6)  # avoid 0.99999999 LSB errors
+   247      4250     141125.0     33.2     14.2              self._update_history()
+
+Total time: 0.57315 s
+File: .\apasv\simulator\simulator.py
+Function: update_boat at line 40
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    40                                               @profile
+    41                                               def update_boat(self, t, n):
+    42                                                   """ update the boat position for t seconds using n steps """
+    43       425    1396299.0   3285.4     89.3          self.boat.update_position(t, n, self.environment.get_currents)
+    44       425      16516.0     38.9      1.1          pos_xy = self.boat.history[:, [1, 2]]
+    45       425      11104.0     26.1      0.7          vel_xy = self.boat.history[:, [4, 5]]
+    46       425     139672.0    328.6      8.9          self.fitness.update_fitness(pos_xy, vel_xy)
+

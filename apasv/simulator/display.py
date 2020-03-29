@@ -149,13 +149,32 @@ class display:
             self.boat_history_width,
         )
 
-    def add_text_rect(self, pos, textstr):
-        pygame.draw.rect(self.win, (200, 200, 200), pos, 0)
+    def add_text_rect(self, pos, textstr, doBG=True):
+        if doBG:
+            pygame.draw.rect(self.win, (200, 200, 200), pos, 0)
         pygame.draw.rect(self.win, (0, 0, 0), pos, 3)
         font = pygame.font.Font(None, 24)
         text = font.render(textstr, True, (0, 0, 0))
         text_rect = text.get_rect(center=(pos[0] + pos[2] / 2, pos[1] + pos[3] / 2))
         self.win.blit(text, text_rect)
+
+    def draw_ap_stats(self, all_labels, all_label_data):
+        y_top = 530
+        y_height = 30
+        bar_length = 60
+        bar_center = 140
+        self.add_text_rect([0, 500, 200, y_height], "AUTOPILOT")
+        for label, data in zip(all_labels, all_label_data):
+            self.add_text_rect([0, y_top, 80, y_height], label)
+            self.add_text_rect([80, y_top, 120, y_height], f"{data[0]:+4.2f}")
+            if data < 0:
+                color = [100, 50, 50]
+            elif data > 0:
+                color = [50, 100, 50]
+            pos = [bar_center, y_top, data * bar_length, y_height]
+            pygame.draw.rect(self.win, color, pos, 0)
+            self.add_text_rect([80, y_top, 120, y_height], f"{data[0]:+4.2f}", False)
+            y_top += y_height
 
     def draw_stats(self, label_str, data_str):
         y_top = 200

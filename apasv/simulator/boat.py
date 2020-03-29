@@ -12,7 +12,7 @@ class boat:
         vel_world=[0, 0, 0],
         throttle=[0, 0],
         color=[215 / 255, 63 / 255, 9 / 255],  # go beavs
-        hullshape=np.array([[-1, -1, 0, 1, 1], [-1, 1, 2, 1, -1]]),
+        hullshape=None,
         friction=[1, 20, 20, 40],  # forwards, backwards, sideways, rotation
         thrust_x_pos=[-0.1, 0.1],
         mass=6,
@@ -43,6 +43,11 @@ class boat:
         self.throttle = throttle
         # appearance
         self.color = color
+        if hullshape is None:
+            hullshape = np.array([[-1, -1, 0, 1, 1], [-1, 1, 2, 1, -1]]) * [
+                [0.35],
+                [0.35],
+            ]
         self.hullshape = np.array(hullshape)
 
         # history
@@ -334,10 +339,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     myboat.plot_history_line(ax, line_color="k", line_width=3)
     myboat.plot_boat_position(
-        ax,
-        scale=[0.25, 0.35],
-        times_to_plot=[0, 5, 14],
-        face_colors=["r", "g", (0, 0, 0)],
+        ax, scale=2, times_to_plot=[0, 5, 14], face_colors=["r", "g", (0, 0, 0)],
     )
     plt.axis([-10, 10, -10, 10])
     ax.set_aspect("equal", "box")

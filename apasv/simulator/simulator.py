@@ -3,11 +3,12 @@ import pygame
 
 
 class simulator:
-    def __init__(self, boat, environment, visual, fitness):
+    def __init__(self, boat, environment, visual, fitness, autopilot=None):
         self.boat = boat
         self.environment = environment
         self.visual = visual
         self.fitness = fitness
+        self.autopilot = autopilot
         self.keys_pressed = None
 
     def get_fitness(self):
@@ -61,6 +62,11 @@ class simulator:
         self.draw_boat()
         self.visual.draw_boat_throttle(self.boat.throttle)
         self.draw_stats()
+        if self.autopilot is not None:
+            self.visual.draw_ap_stats(
+                self.autopilot.debug_autopilot_labels,
+                self.autopilot.debug_autopilot_label_data,
+            )
         self.keys_pressed = self.visual.update()
         pygame.time.delay(int(pause_time * 1000))
 
@@ -131,8 +137,10 @@ class simulator:
     def draw_mission(self):
         for line_num, line in enumerate(self.fitness.mission.survey_lines):
             highlight_line = False
-            if line_num == self.fitness.current_survey_line:
-                highlight_line = True
+            if self.autopilot is not None:
+                if line_num == self.autopilot.current_line:
+                    highlight_line = True
+
             line_points = np.array(
                 [[line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]]]
             )
