@@ -48,19 +48,19 @@ BIAS_METHOD = "randn"
 # create random seeds
 np.random.seed(RAND_SEED)
 all_rand_seed = np.random.choice(MAXSEED, NTEST, replace=False)
-all_rand_seed = [
-    7693132,
-    1641599,
-    2456851,
-    5380374,
-    7775228,
-    9769652,
-    8142836,
-    3906818,
-    3502335,
-    2208792,
-]
-DEBUG = True
+# all_rand_seed = [
+#     1470477,
+#     1641599,
+#     2456851,
+#     5380374,
+#     7775228,
+#     9769652,
+#     8142836,
+#     3906818,
+#     3502335,
+#     2208792,
+# ]
+# DEBUG = True
 # all_rand_seed[0] = 9461794
 
 # create mission and environment
@@ -237,7 +237,7 @@ if __name__ == "__main__":
             current_inds = current_num + np.arange(PARALLEL_CHUNK_SIZE)
             chunk_seeds = all_rand_seed[current_inds]
             t_chunk_start = time.time()
-            with concurrent.futures.ProcessPoolExecutor() as executor:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=60) as executor:
                 chunk_results = executor.map(run_simulation, chunk_seeds)
                 for sim_results in chunk_results:
                     best_list, _ = update_best_list(sim_results, best_list)

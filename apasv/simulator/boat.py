@@ -156,15 +156,10 @@ class boat:
 
     def update_position(self, time_step, num_dt, vel_water_function=lambda xy: (0, 0)):
         """ Update the position of the boat """
-        # TODO Conservation of momentum is not right...
-        # fast current goign into no current will have a show a crazy high acceleration
         self._update_history_of_updates()
         # for the num_dt to move
         dt = time_step / num_dt
         for t_step in range(num_dt):
-            # TODO Fix friction forces for azimuth, ensure friction not overshooting
-            #   eg. 50m/s v_az w/ no throttle, corrects to -10 m/s v_az from friction
-
             # -------------------- ACCELERATION FROM WATER CURRENTS ----------
             # convert water velocity from world to boat reference frame
             vel_water_world_x, vel_water_world_y = vel_water_function(
@@ -199,6 +194,10 @@ class boat:
             accel_friction_world_x, accel_friction_world_y = self.local_to_world_coords(
                 [accel_friction_boat_x, accel_friction_boat_y], self.pos["az"]
             )
+            # if acceleration due to friction is enough to flip the sign of the velocity
+            # set friction acceleration equal to 0
+            # TODO fix unstable friction accelerations
+            #   eg. 50m/s v_az w/ no throttle, corrects to -10 m/s v_az from friction
 
             # -------------------- ACCELERATION FROM THRUSTERS ----------
             # compute thrust forces from each motor  ** torque == force_boat_az **

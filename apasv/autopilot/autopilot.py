@@ -262,14 +262,14 @@ class ap_nn(autopilot):
     @staticmethod
     def calc_nn_out_to_throttle(nn_out, flipped_input):
         # standard way
-        # throttle = 200 * (nn_out - 0.5)
+        throttle = 200 * (nn_out - 0.5)
 
-        # [0] is throttle
-        # [1] is turn amount
-        total_fwd = 200 * (nn_out[0] - 0.5)
-        L_throttle = total_fwd + 200 * (nn_out[1] - 0.5)
-        R_throttle = total_fwd - 200 * (nn_out[1] - 0.5)
-        throttle = [L_throttle, R_throttle]
+        # # [0] is throttle
+        # # [1] is turn amount
+        # total_fwd = 200 * (nn_out[0] - 0.5)
+        # L_throttle = total_fwd + 200 * (nn_out[1] - 0.5)
+        # R_throttle = total_fwd - 200 * (nn_out[1] - 0.5)
+        # throttle = [L_throttle, R_throttle]
         if flipped_input:
             return np.hstack((throttle[1], throttle[0]))
         else:
