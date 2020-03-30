@@ -697,8 +697,9 @@ if __name__ == "__main__":
         3,
         1,
         [4],
+        rand_seed=5,
         output_softmax=False,
-        rand_weights_method="randpm",
+        rand_weights_method="rand",
         rand_biases_method="zeros",
     )
 
@@ -706,11 +707,7 @@ if __name__ == "__main__":
     output_data = np.array([0, 1, 1, 0])
 
     cost = myNN.train(
-        input_data,
-        output_data,
-        1500,
-        num_subsample_inputs=4,
-        learning_rate=12654444444444442395,
+        input_data, output_data, 1500, num_subsample_inputs=4, learning_rate=0.1,
     )
 
     # myNN.visualize()

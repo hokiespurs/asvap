@@ -148,9 +148,9 @@ class simulator:
 
     def draw_gate(self):
         NOLDGATE = 5
-        Rold = np.linspace(215, self.visual.bg_color[0], NOLDGATE)
-        Gold = np.linspace(151, self.visual.bg_color[1], NOLDGATE)
-        Bold = np.linspace(151, self.visual.bg_color[2], NOLDGATE)
+        Rold = np.linspace(150, self.visual.bg_color[0], NOLDGATE)
+        Gold = np.linspace(150, self.visual.bg_color[1], NOLDGATE)
+        Bold = np.linspace(150, self.visual.bg_color[2], NOLDGATE)
 
         NFUTUREGATE = 5
         Rfuture = np.linspace(150, self.visual.bg_color[0], NFUTUREGATE)

@@ -19,7 +19,7 @@ class display:
         mission_line_color=(255, 255, 255),
         mission_line_color_highlight=(200, 100, 0),
         mission_line_width=5,
-        boat_history_color=(100, 100, 255),
+        boat_history_color=(0, 0, 0),
         boat_history_width=4,
         boat_history_max_num=3000,
     ):
@@ -52,7 +52,7 @@ class display:
         dt = process_time() - self.last_update_time
         if dt == 0:
             dt = 0.01
-        self.fps = (self.fps) * 0.99 + (1 / (dt)) * 0.01
+        self.fps = (self.fps) * 0.95 + (1 / (dt)) * 0.05
         self.last_update_time = process_time()
         pygame.display.flip()
         for event in pygame.event.get():
@@ -120,6 +120,7 @@ class display:
         boatcolor = np.array(color) * 255
         poly_game = self.world_to_game(poly.T)
         pygame.draw.polygon(self.win, boatcolor, poly_game)
+        pygame.draw.polygon(self.win, (0, 0, 0), poly_game, 2)
 
     def draw_gate(self, poly, color):
         poly_game = self.world_to_game(poly.T)

@@ -78,10 +78,10 @@ def update_throttle(keys_pressed, cur_throttle):
 
 my_visual = display.display()
 
-my_boat = boat.boat(friction=[1, 1, 5, 50])
-# x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
-# y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
-# my_boat.hullshape = np.array([x, y])
+my_boat = boat.boat(friction=[1, 1, 5, 50], color=[1, 1, 0])
+x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
+y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
+my_boat.hullshape = np.array([x, y])
 mission_name = (
     "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
 )

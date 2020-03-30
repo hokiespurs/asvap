@@ -127,9 +127,17 @@ class ap_nn(autopilot):
         rand_biases_scalar=1,
     ):
         super().__init__(survey_lines)
-
+        self.old_data = {
+            "downline_pos": 0,
+            "offline_pos": 0,
+            "downline_vel": 0,
+            "offline_vel": 0,
+            "az": 0,
+            "vaz": 0,
+        }
         fake_data = {"x": 0, "y": 0, "az": 0, "vx": 0, "vy": 0, "vaz": 0}
-        num_input = self.calc_nn_inputs(fake_data).size
+        fake_nn_input, _ = self.calc_nn_inputs(fake_data)
+        num_input = fake_nn_input.size
         num_output = 2
         self.nn = neuralnetwork.neuralnetwork(
             num_input,
@@ -151,12 +159,14 @@ class ap_nn(autopilot):
         # offline_position
         # cos(azimuth_off_line)
         # sin(azimuth_off_line)
+        # tanh(vel_offline)
 
         (downline_pos, offline_pos, downline_vel, offline_vel) = self.get_pos_vel_gate(
             [new_data["x"], new_data["y"]],
             [new_data["vx"], new_data["vy"]],
             self.current_line,
         )
+        dist_remaining = self.survey_lines[self.current_line]["distance"] - downline_pos
         # compute velocity error
         d_speed = downline_vel - self.survey_lines[self.current_line]["goal_speed"]
         # compute azimuth off line
@@ -167,31 +177,107 @@ class ap_nn(autopilot):
             daz -= 2 * np.pi
         elif daz < -np.pi:
             daz += 2 * np.pi
-        datavals = np.array(
-            [tanh(d_speed), tanh(offline_pos), np.cos(daz), np.sin(daz)]
-        ).reshape(-1, 1)
 
-        # Populate debug labels
-        labels = ["tanh(dv)", "tanh(off)", "cos(daz)", "sin(daz)"]
+        downline_acc = downline_vel - self.old_data["downline_vel"]
+        offline_acc = offline_vel - self.old_data["offline_vel"]
+        az_vel = new_data["vaz"]
+        az_acc = new_data["vaz"] - self.old_data["vaz"]
+        datavals = np.array(
+            [
+                tanh(dist_remaining / 3),
+                tanh(d_speed / 2),
+                tanh(downline_acc * 10),
+                tanh(offline_pos / 5),
+                tanh(offline_vel / 2),
+                tanh(offline_acc * 10),
+                np.cos(daz),
+                np.sin(daz),
+                tanh(az_vel / 45),
+                tanh(az_acc),
+            ]
+        ).reshape(-1, 1)
+        labels = [
+            "d_2_end",
+            "y_v_err/2",
+            "y_a*10",
+            "x_err/5",
+            "x_v/2",
+            "x_a*10",
+            "cos(daz)",
+            "sin(daz)",
+            "az_v/45",
+            "az_a",
+        ]
+        flipped_input = False
+        # Flip Inputs so always thinks its on positive side of line
+        if offline_pos > 0:
+            # Populate debug labels
+            datavals = np.array(
+                [
+                    tanh(dist_remaining / 3),
+                    tanh(d_speed / 2),
+                    tanh(downline_acc * 10),
+                    tanh(-offline_pos / 5),
+                    tanh(-offline_vel / 2),
+                    tanh(-offline_acc * 10),
+                    np.cos(-daz),
+                    np.sin(-daz),
+                    tanh(-az_vel / 45),
+                    tanh(-az_acc),
+                ]
+            ).reshape(-1, 1)
+            labels = [
+                "d_2_end",
+                "y_v_err/2",
+                "y_a*10",
+                "-x_err/5",
+                "-x_v/2",
+                "-x_a*10",
+                "cos(-daz)",
+                "sin(-daz)",
+                "-az_v/45",
+                "-az_a",
+            ]
+            flipped_input = True
 
         self.debug_autopilot_labels = labels
         self.debug_autopilot_label_data = datavals
 
-        # datalabels = 0
-        # datastr = 0
-        return datavals
+        # old_data for acceleration calculations
+        self.old_data = {
+            "downline_pos": downline_pos,
+            "offline_pos": offline_pos,
+            "downline_vel": downline_vel,
+            "offline_vel": offline_vel,
+            "az": new_data["az"],
+            "vaz": new_data["vaz"],
+        }
+
+        return datavals, flipped_input
 
     @staticmethod
-    def calc_nn_out_to_throttle(nn_out):
-        return 200 * (nn_out - 0.5)
+    def calc_nn_out_to_throttle(nn_out, flipped_input):
+        # standard way
+        # throttle = 200 * (nn_out - 0.5)
+
+        # [0] is throttle
+        # [1] is turn amount
+        total_fwd = 200 * (nn_out[0] - 0.5)
+        L_throttle = total_fwd + 200 * (nn_out[1] - 0.5)
+        R_throttle = total_fwd - 200 * (nn_out[1] - 0.5)
+        throttle = [L_throttle, R_throttle]
+        if flipped_input:
+            return np.hstack((throttle[1], throttle[0]))
+        else:
+            return np.hstack((throttle[0], throttle[1]))
 
     def calc_boat_throttle(self, new_data):
         """ calculate the throttle command to the boat"""
         # new_data = [pos_x, pos_y, pos_az, vel_x, vel_y, vel_az]
         self.update_current_line([new_data["x"], new_data["y"]])
-        nn_inputs = self.calc_nn_inputs(new_data)
+        nn_inputs, flipped_input = self.calc_nn_inputs(new_data)
         nn_outputs = self.nn.feed_forward(nn_inputs)
-        throttle = self.calc_nn_out_to_throttle(nn_outputs)
+        throttle = self.calc_nn_out_to_throttle(nn_outputs, flipped_input)
         return self.limit_throttle(throttle)
 
 
@@ -207,6 +293,22 @@ class ap_shell(autopilot):
         # store any persistent data in class self variable
         #   - eg. accelerations, last N samples, etc
         pass
+
+
+def sigmoid(x, derivative=False):
+    """ Computes sigmoid function of x """
+    if derivative:
+        return sigmoid(x) * (1 - sigmoid(x))
+    else:
+        return 1 / (1 + np.exp(-x))
+
+
+def tanh(x, derivative=False):
+    """ hyperbolic tangent """
+    if derivative:
+        return 1.0 - np.tanh(x) ** 2
+    else:
+        return np.tanh(x)
 
 
 if __name__ == "__main__":
@@ -231,19 +333,3 @@ if __name__ == "__main__":
     }
     print(my_ap.calc_boat_throttle(boat_data))
     print(my_ap.calc_boat_throttle(boat_data).shape)
-
-
-def sigmoid(x, derivative=False):
-    """ Computes sigmoid function of x """
-    if derivative:
-        return sigmoid(x) * (1 - sigmoid(x))
-    else:
-        return 1 / (1 + np.exp(-x))
-
-
-def tanh(x, derivative=False):
-    """ hyperbolic tangent """
-    if derivative:
-        return 1.0 - np.tanh(x) ** 2
-    else:
-        return np.tanh(x)
