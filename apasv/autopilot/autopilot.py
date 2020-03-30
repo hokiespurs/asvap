@@ -185,6 +185,7 @@ class ap_nn(autopilot):
         datavals = np.array(
             [
                 tanh(dist_remaining / 3),
+                tanh(downline_pos),
                 tanh(d_speed / 2),
                 tanh(downline_acc * 10),
                 tanh(offline_pos / 5),
@@ -198,6 +199,7 @@ class ap_nn(autopilot):
         ).reshape(-1, 1)
         labels = [
             "d_2_end",
+            "y_pos",
             "y_v_err/2",
             "y_a*10",
             "x_err/5",
@@ -215,6 +217,7 @@ class ap_nn(autopilot):
             datavals = np.array(
                 [
                     tanh(dist_remaining / 3),
+                    tanh(downline_pos),
                     tanh(d_speed / 2),
                     tanh(downline_acc * 10),
                     tanh(-offline_pos / 5),
@@ -228,6 +231,7 @@ class ap_nn(autopilot):
             ).reshape(-1, 1)
             labels = [
                 "d_2_end",
+                "y_pos",
                 "y_v_err/2",
                 "y_a*10",
                 "-x_err/5",

@@ -13,7 +13,11 @@ class simulator:
 
     def get_fitness(self):
         """ Get the fitness of the boat on the mission """
-        return self.fitness.current_fitness
+        is_valid_run = self.fitness.is_valid_run(self.boat.history_of_updates)
+        if is_valid_run:
+            return self.fitness.current_fitness
+        else:
+            return 0
 
     def get_mission_waypoints(self):
         """ return the mission """
@@ -116,10 +120,8 @@ class simulator:
         if self.fitness.current_gate_num == 0:
             avg_per_gate = 0
         else:
-            avg_per_gate = self.fitness.current_fitness / (
-                self.fitness.current_gate_num
-            )
-        data_string.append(f"{self.fitness.current_fitness:.1f} ({avg_per_gate:.2f})")
+            avg_per_gate = self.get_fitness() / (self.fitness.current_gate_num)
+        data_string.append(f"{self.get_fitness():.1f} ({avg_per_gate:.2f})")
 
         # fitness
         label_string.append("fps")
@@ -192,9 +194,7 @@ if __name__ == "__main__":
     y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
     my_boat.hullshape = np.array([x, y])
     # my_boat.hullshape = my_boat.hullshape * np.array([0.3, 0.5]).reshape(2, 1)
-    mission_name = (
-        "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
-    )
+    mission_name = "./data/missions/increasingangle.txt"
     my_mission = mission.mission(survey_line_filename=mission_name)
     my_fitness = mission.fitness(my_mission, gate_length=0.5, offline_importance=0.5)
     my_fitness.current_gate_num = 15

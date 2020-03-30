@@ -19,15 +19,15 @@ DEBUG_DELAY = 0.0015
 # ------------------- CONSTANTS ----------------------------------
 NTEST = int(1e7)
 MAXSEED = int(1e7)
-PARALLEL_CHUNK_SIZE = 5000
+PARALLEL_CHUNK_SIZE = 1
 NUM_BEST = 10
 # random seed
 RAND_SEED = 13  # random seed to start building random boats
 # boat position
-START_POSITION = [0, 0, 10]  # x,y,az
+START_POSITION = [0, 0, 0]  # x,y,az
 BOAT_TIMESTEP = 1
 NUM_SUBSTEPS = 10
-MAX_TIME = 500
+MAX_TIME = 800
 CUTOFFS = [
     [5, 0.1],
     [50, 20],
@@ -36,9 +36,7 @@ CUTOFFS = [
     [300, 75],
 ]  # [time,fitness]
 # TODO make cutoffs automatically figure themselves out as it goes
-MISSION_NAME = (
-    "C:/Users/Richie/Documents/GitHub/asvap/data/missions/increasingangle.txt"
-)
+MISSION_NAME = "./data/missions/increasingangle.txt"
 # neural net
 NUM_NODES = [30, 30, 30]
 ACTIVATION = ["sigmoid", "sigmoid", "sigmoid", "sigmoid"]
@@ -50,20 +48,21 @@ BIAS_METHOD = "randn"
 # create random seeds
 np.random.seed(RAND_SEED)
 all_rand_seed = np.random.choice(MAXSEED, NTEST, replace=False)
-# all_rand_seed = [
-#     5015713,
-#     7781496,
-#     6223942,
-#     497611,
-#     1826892,
-#     5075308,
-#     8882374,
-#     7106055,
-#     2775222,
-#     5377863,
-# ]
+all_rand_seed = [
+    7693132,
+    1641599,
+    2456851,
+    5380374,
+    7775228,
+    9769652,
+    8142836,
+    3906818,
+    3502335,
+    2208792,
+]
+DEBUG = True
 # all_rand_seed[0] = 9461794
-# DEBUG = True
+
 # create mission and environment
 if DEBUG:
     my_visual = display.display()  # debugging visual
@@ -136,10 +135,14 @@ def run_simulation(rand_seed):
     percent_complete = 100 * my_fitness.current_gate_num / len(my_fitness.all_gate)
     t_time = time.time()
     fitness_score = my_simulator.get_fitness()
+    mean_offline_fitness = my_simulator.fitness.mean_offline_fitness
+    mean_velocity_fitness = my_simulator.fitness.mean_velocity_fitness
     if fitness_score == 0:
         avg_fitness = 0
     else:
         avg_fitness = fitness_score / my_fitness.current_gate_num
+        mean_offline_fitness /= my_fitness.current_gate_num
+        mean_velocity_fitness /= my_fitness.current_gate_num
     return [
         rand_seed,
         fitness_score,
@@ -148,7 +151,13 @@ def run_simulation(rand_seed):
         t_time,
         time_to_run,
         avg_fitness,
+        mean_offline_fitness,
+        mean_velocity_fitness,
     ]
+
+
+# TODO Add mean velocity and mean offline fitness to the "best" table
+# TODO Make "best" table and this run script more modular, maybe in a separate py file
 
 
 def is_cutoffs_good(is_cutoff_checked, t, fitness):
@@ -165,7 +174,7 @@ def update_best_list(sim_data=None, best_list=None):
     is_changed = False
     if sim_data is None and best_list is None:
         # preallocate list
-        best_list = np.zeros((NUM_BEST, 7))
+        best_list = np.zeros((NUM_BEST, 9))
 
     elif sim_data is None:
         # no data passed for some reason
@@ -187,6 +196,8 @@ def print_sim_results(sim_data, docr=True, rank=0):
         f" {rank+1:4.0f} |"
         + f"{sim_data[1]:8.2f} |"
         + f"{sim_data[6]:9.2f} |"
+        + f"{sim_data[7]:9.2f} |"
+        + f"{sim_data[8]:9.2f} |"
         + f"{sim_data[2]:11.1f} |"
         + f"{sim_data[3]:10.1f} |"
         + f"{sim_data[0]:13.0f} |"
@@ -207,7 +218,7 @@ def print_best_list(best_list):
     system("cls")
     # print header
     headerstr = (
-        " RANK | FITNESS | PER GATE | % COMPLETE | BOAT TIME |"
+        " RANK | FITNESS | PER GATE |  OFF FIT |  VEL FIT | % COMPLETE | BOAT TIME |"
         + "         SEED |        DATETIME | CPU TIME"
     )
     print(headerstr)

@@ -18,8 +18,9 @@ class mission:
 
     """
 
-    def __init__(self, survey_line_filename):
+    def __init__(self, survey_line_filename, flip_x=False):
         self.survey_line_filename = survey_line_filename
+        self.flip_x = flip_x
 
         self.survey_lines = self.read_survey_lines(survey_line_filename)
         self.num_lines = len(self.survey_lines)
@@ -29,6 +30,10 @@ class mission:
         survey_lines = []
 
         for i in range(len(survey_line_data["wp1_x"])):
+            if self.flip_x:  # flip mission across x for debugging
+                survey_line_data["wp1_x"][i] = -survey_line_data["wp1_x"][i]
+                survey_line_data["wp2_x"][i] = -survey_line_data["wp2_x"][i]
+
             dist_x = survey_line_data["wp2_x"][i] - survey_line_data["wp1_x"][i]
             dist_y = survey_line_data["wp2_y"][i] - survey_line_data["wp1_y"][i]
 
@@ -109,6 +114,9 @@ class fitness:
         self.current_survey_line = 0
         self.current_gate_num = 0
         self.current_fitness = 0
+        self.mean_offline_fitness = 0
+        self.mean_velocity_fitness = 0
+
         self.last_boat_history_ind = 0
         self.mission_complete = False
 
@@ -270,6 +278,12 @@ class fitness:
             self.current_fitness += self.all_gate_fitness[self.current_gate_num][
                 "fitness"
             ]
+            self.mean_offline_fitness += self.all_gate_fitness[self.current_gate_num][
+                "mean_offline"
+            ]
+            self.mean_velocity_fitness += self.all_gate_fitness[self.current_gate_num][
+                "mean_velocity"
+            ]
         else:
             # compute min, max, mean of all
             old_data = self.all_gate_fitness[self.current_gate_num]
@@ -293,6 +307,8 @@ class fitness:
                 velocity_fitness, old_data["mean_velocity"], num_old_vals
             )
             fitness_change = new_mean_fitness - old_data["fitness"]
+            offline_fitness_change = new_mean_offline - old_data["mean_offline"]
+            velocity_fitness_change = new_mean_vel - old_data["mean_velocity"]
 
             self.all_gate_fitness[self.current_gate_num] = {
                 "npts": new_npts,
@@ -308,6 +324,29 @@ class fitness:
                 "fitness": new_mean_fitness,  # change this to max?
             }
             self.current_fitness += fitness_change
+            self.mean_offline_fitness += offline_fitness_change
+            self.mean_velocity_fitness += velocity_fitness_change
+
+    def is_valid_run(self, history_of_updates):
+        """ Computes if the run is valid (ie. not spinning, backwards) """
+        NUM_SPINS_PER_LINE = 3
+        TIME_BEFORE_EVAL = 10  # give it time seconds to get going
+        time = history_of_updates[:, 0]
+        vel_az = history_of_updates[:, 6]
+        left_throttle = history_of_updates[:, 7]
+        right_throttle = history_of_updates[:, 8]
+        if time[-1] > TIME_BEFORE_EVAL:
+            # backwards boat
+            if np.mean(left_throttle) < 0 and np.mean(right_throttle) < 0:
+                return False
+            # spinning boat
+            mean_vel_az = np.mean(vel_az)
+            total_num_spins = mean_vel_az * time[-1] / 360
+            spins_per_line = total_num_spins / (self.current_survey_line + 1)
+            if np.abs(spins_per_line) > NUM_SPINS_PER_LINE:  # more than 3 spins
+                return False
+
+        return True
 
     @staticmethod
     def running_mean(new_values, old_mean, num_old):
