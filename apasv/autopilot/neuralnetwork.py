@@ -164,7 +164,7 @@ class neuralnetwork:
         # Return mean of partial derivatives
         dw_all.reverse()
         db_all.reverse()
-        return dw_all, db_all
+        return dw_all, db_all, dC_da
 
     def train(
         self,
@@ -205,7 +205,7 @@ class neuralnetwork:
             # compute total cost for stats
             mean_cost[i] = np.mean(prediction_error ** 2)
             # backpropogate to get partial derivatives
-            dCdw, dCdb = self.back_propagate(prediction_error, activation, dadz)
+            dCdw, dCdb, dCda = self.back_propagate(prediction_error, activation, dadz)
             # update weights/biases
             for dw, db, w, b in zip(dCdw, dCdb, self.weights, self.biases):
                 w -= dw * learning_rate
@@ -695,26 +695,41 @@ if __name__ == "__main__":
 
     myNN = neuralnetwork(
         3,
-        1,
-        [4],
-        rand_seed=5,
+        2,
+        [2],
+        rand_seed=88,
         output_softmax=False,
+        activation_function_names=["tanh", "sigmoid"],
         rand_weights_method="rand",
         rand_biases_method="zeros",
     )
 
     input_data = np.array([[0, 1, 1, 0], [0, 1, 0, 1], [1, 1, 1, 1]])
-    output_data = np.array([0, 1, 1, 0])
+    output_data = np.array([[0, 1, 1, 0], [0, 1, 0, 1]])
+
+    # myNN.weights[0] = np.array([[1.0, 0, 0], [0, 1, 0]]) * 10
+    # myNN.weights[1] = np.array([[1.0, 0], [0, 1]]) * 10
 
     cost = myNN.train(
-        input_data, output_data, 1500, num_subsample_inputs=4, learning_rate=0.1,
+        input_data, output_data, 5000, num_subsample_inputs=2, learning_rate=1.0,
     )
 
     # myNN.visualize()
     # plt.show()
-    activation, dadz = myNN.feed_forward_full(input_data[:, 2])
+    activation, dadz = myNN.feed_forward_full(input_data)
 
     data_est = myNN.feed_forward(input_data)
+    data_est_test1 = np.ones_like(data_est) * 1
+    data_est_test1[0, :] = 0
+    data_est_test2 = np.ones_like(data_est) * 1
+    data_est_test2[1, :] = 0
+    _, _, dCda1 = myNN.back_propagate(data_est_test1, activation, dadz)
+    _, _, dCda2 = myNN.back_propagate(data_est_test2, activation, dadz)
+
+    print("partial dOutput 1 wrt Inputs")
+    print(dCda1 / (np.sum(np.abs(dCda1.T), axis=1).reshape(1, 4)))
+    print("partial dOutput 2 wrt Inputs")
+    print(dCda2 / (np.sum(np.abs(dCda2.T), axis=1).reshape(1, 4)))
     print(f"Data Estimate: {np.round(data_est,3)}")
     print(f"Data Truth   : {output_data}")
 

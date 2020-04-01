@@ -3,7 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
-
+# mass=5,
+# rotational_mass=0.5,
+# friction=[3, 10, 30, 50],
+# thrust_x_pos=[-0.3, 0.3],
+# color=[1, 1, 0],
+# friction_function=lambda friction, vel: friction * (vel ** 3 / 10 + vel),
 class boat:
     def __init__(
         self,
@@ -11,15 +16,16 @@ class boat:
         pos=[0, 0, 0],
         vel_world=[0, 0, 0],
         throttle=[0, 0],
-        color=[215 / 255, 63 / 255, 9 / 255],  # go beavs
+        color=[1, 1, 0],  # go beavs
         hullshape=None,
-        friction=[1, 20, 20, 40],  # forwards, backwards, sideways, rotation
-        thrust_x_pos=[-0.1, 0.1],
-        mass=6,
+        friction=[3, 10, 30, 50],  # forwards, backwards, sideways, rotation
+        thrust_x_pos=[-0.2, 0.2],
+        mass=5,
         rotational_mass=0.5,
         thrust_function=lambda x: x / 20,
-        friction_function=lambda friction, vel: friction * vel * 3,
-        friction_function_rotation=lambda friction, vel: friction * vel / 200 * 3,
+        friction_function=lambda friction, vel: friction * (vel ** 3 / 10 + vel),
+        friction_function_rotation=lambda friction, vel: friction
+        * (vel ** 3 / 10 + vel),
         max_num_history=100000,
     ):
         # kinematics
@@ -191,13 +197,30 @@ class boat:
             accel_friction_boat_x = -friction_force_boat_x / self.mass
             accel_friction_boat_y = -friction_force_boat_y / self.mass
 
+            # if acceleration due to friction over the dt flips the sign of the velocity
+            # *this can happen over a large timestep, because we are assuming
+            # constant friction over the timestep, even though it's slowing down
+            # this could probably be more accurate with some iterative approach
+            # but it would be slower
+
+            is_change_sign_x = abs(accel_friction_boat_x * dt) > abs(
+                vel_relative_boat_x
+            )
+            is_change_sign_y = abs(accel_friction_boat_y * dt) > abs(
+                vel_relative_boat_y
+            )
+            # set acceleration so that final velocity is equal to 0
+            # this precents overshoot
+            # "hey, slow it down until it stops over this timestep"
+            if is_change_sign_x:
+                accel_friction_boat_x = -vel_relative_boat_x / dt
+            if is_change_sign_y:
+                accel_friction_boat_y = -vel_relative_boat_y / dt
+
+            # convert acceleration to world coordinates
             accel_friction_world_x, accel_friction_world_y = self.local_to_world_coords(
                 [accel_friction_boat_x, accel_friction_boat_y], self.pos["az"]
             )
-            # if acceleration due to friction is enough to flip the sign of the velocity
-            # set friction acceleration equal to 0
-            # TODO fix unstable friction accelerations
-            #   eg. 50m/s v_az w/ no throttle, corrects to -10 m/s v_az from friction
 
             # -------------------- ACCELERATION FROM THRUSTERS ----------
             # compute thrust forces from each motor  ** torque == force_boat_az **
@@ -227,7 +250,7 @@ class boat:
             # -------------------- ROTATE BOAT --------------
             # compute forces influencing boat azimuth
             friction_force_boat_az = self.friction_function_rotation(
-                self.friction["rotation"], self.vel_world["az"]
+                self.friction["rotation"], self.vel_world["az"] / 50
             )
 
             thrust_force_boat_az = (
@@ -317,7 +340,7 @@ if __name__ == "__main__":
 
     def watervelfun(xy):
         if xy[0] > -1:
-            return (-1, 0.5)
+            return (-0.25, 0.25)
         else:
             return (-0.5, 0)
 
@@ -325,15 +348,15 @@ if __name__ == "__main__":
 
     for t in range(14):
         if t == 1:
-            myboat.throttle = [60, 100]
+            myboat.throttle = [60, 80]
         elif t == 5:
-            myboat.throttle = [100, 20]
+            myboat.throttle = [80, 20]
         elif t == 8:
             myboat.throttle = [-100, 100]
         elif t == 10:
             myboat.throttle = [10, 10]
 
-        myboat.update_position(1, 100, vel_water_function=watervelfun)
+        myboat.update_position(1, 2, vel_water_function=watervelfun)
 
     fig, ax = plt.subplots()
     myboat.plot_history_line(ax, line_color="k", line_width=3)
@@ -356,3 +379,5 @@ if __name__ == "__main__":
     plt.subplot(2, 1, 2)
     plt.plot(t, az)
     plt.show()
+
+# TODO determine default boat kinematics

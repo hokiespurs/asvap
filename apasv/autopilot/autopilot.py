@@ -19,6 +19,7 @@ class autopilot:
         self.mission_complete = False
         self.debug_autopilot_labels = ["AP"]
         self.debug_autopilot_label_data = 0
+        self.debug_autopilot_partials = None
 
     def make_fake_survey_line(self):
         """ Make a fake survey line for debugging """
@@ -137,11 +138,12 @@ class ap_nn(autopilot):
         }
         fake_data = {"x": 0, "y": 0, "az": 0, "vx": 0, "vy": 0, "vaz": 0}
         fake_nn_input, _ = self.calc_nn_inputs(fake_data)
-        num_input = fake_nn_input.size
-        num_output = 2
+        self.num_input = fake_nn_input.size
+        self.debug_autopilot_partials = [None] * self.num_input
+        self.num_output = 2
         self.nn = neuralnetwork.neuralnetwork(
-            num_input,
-            num_output,
+            self.num_input,
+            self.num_output,
             num_neurons=num_neurons,
             output_softmax=output_softmax,
             activation_function_names=activation_function_names,
@@ -182,33 +184,41 @@ class ap_nn(autopilot):
         offline_acc = offline_vel - self.old_data["offline_vel"]
         az_vel = new_data["vaz"]
         az_acc = new_data["vaz"] - self.old_data["vaz"]
+
+        # np.tanh(-x_l / 5),
+        # -vx_l / 3,
+        # np.tanh(-ax_l),
+        # np.cos(np.deg2rad(daz)),
+        # -np.sin(np.deg2rad(daz)),
+        # -vaz / 90,
+        # np.tanh(-aaz / 10),
+        # (vy_l - 1) / 3,
+        # np.tanh(ay_l),
+        # 1,
+
         datavals = np.array(
             [
-                tanh(dist_remaining / 3),
-                tanh(downline_pos),
-                tanh(d_speed / 2),
-                tanh(downline_acc * 10),
                 tanh(offline_pos / 5),
-                tanh(offline_vel / 2),
-                tanh(offline_acc * 10),
+                offline_vel / 3,
+                tanh(offline_acc),
                 np.cos(daz),
                 np.sin(daz),
-                tanh(az_vel / 45),
-                tanh(az_acc),
+                az_vel / 90,
+                tanh(az_acc / 10),
+                tanh(d_speed / 3),
+                tanh(downline_acc),
             ]
         ).reshape(-1, 1)
         labels = [
-            "d_2_end",
-            "y_pos",
-            "y_v_err/2",
-            "y_a*10",
-            "x_err/5",
-            "x_v/2",
-            "x_a*10",
-            "cos(daz)",
-            "sin(daz)",
-            "az_v/45",
-            "az_a",
+            "tanh(offline/5)",
+            "offline_vel/3",
+            "tanh(offline_acc)",
+            "cos(az_err)",
+            "sin(az_err)",
+            "az_vel/90",
+            "tanh(az_acc/10)",
+            "tanh(vel_error/3)",
+            "tanh(downline_acc)",
         ]
         flipped_input = False
         # Flip Inputs so always thinks its on positive side of line
@@ -216,37 +226,32 @@ class ap_nn(autopilot):
             # Populate debug labels
             datavals = np.array(
                 [
-                    tanh(dist_remaining / 3),
-                    tanh(downline_pos),
-                    tanh(d_speed / 2),
-                    tanh(downline_acc * 10),
                     tanh(-offline_pos / 5),
-                    tanh(-offline_vel / 2),
-                    tanh(-offline_acc * 10),
+                    -offline_vel / 3,
+                    tanh(-offline_acc),
                     np.cos(-daz),
                     np.sin(-daz),
-                    tanh(-az_vel / 45),
-                    tanh(-az_acc),
+                    -az_vel / 90,
+                    tanh(-az_acc / 10),
+                    tanh(d_speed / 3),
+                    tanh(downline_acc),
                 ]
             ).reshape(-1, 1)
             labels = [
-                "d_2_end",
-                "y_pos",
-                "y_v_err/2",
-                "y_a*10",
-                "-x_err/5",
-                "-x_v/2",
-                "-x_a*10",
-                "cos(-daz)",
-                "sin(-daz)",
-                "-az_v/45",
-                "-az_a",
+                "tanh(offline/5)",
+                "offline_vel/3",
+                "tanh(offline_acc)",
+                "cos(az_err)",
+                "sin(az_err)",
+                "az_vel/90",
+                "tanh(az_acc/10)",
+                "tanh(vel_error/3)",
+                "tanh(downline_acc)",
             ]
             flipped_input = True
 
         self.debug_autopilot_labels = labels
         self.debug_autopilot_label_data = datavals
-
         # old_data for acceleration calculations
         self.old_data = {
             "downline_pos": downline_pos,
@@ -280,7 +285,38 @@ class ap_nn(autopilot):
         # new_data = [pos_x, pos_y, pos_az, vel_x, vel_y, vel_az]
         self.update_current_line([new_data["x"], new_data["y"]])
         nn_inputs, flipped_input = self.calc_nn_inputs(new_data)
-        nn_outputs = self.nn.feed_forward(nn_inputs)
+        # nn_outputs = self.nn.feed_forward(nn_inputs)
+        # compute partial derivatives
+        activation, dadz = self.nn.feed_forward_full(nn_inputs)
+        nn_outputs = activation[-1]
+        _, _, dCda1 = self.nn.back_propagate(
+            np.array([1, 0]).reshape(2, 1), activation, dadz
+        )
+        dCda1 = dCda1 / np.max(np.abs(dCda1))
+
+        _, _, dCda2 = self.nn.back_propagate(
+            np.array([0, 1]).reshape(2, 1), activation, dadz
+        )
+        dCda2 = dCda2 / np.max(np.abs(dCda2))
+
+        all_partials = []
+        for i in range(self.num_input):
+            all_partials.append([dCda1[i], dCda2[i]])
+        all_partials.append(None)
+        all_partials.append(None)
+        self.debug_autopilot_partials = all_partials
+
+        self.debug_autopilot_labels.append("NN Out Throttle L")
+        self.debug_autopilot_labels.append("NN Out Throttle R")
+
+        self.debug_autopilot_label_data = np.vstack(
+            (
+                self.debug_autopilot_label_data,
+                nn_outputs[0] * 2 - 1,
+                nn_outputs[1] * 2 - 1,
+            )
+        )
+
         throttle = self.calc_nn_out_to_throttle(nn_outputs, flipped_input)
         return self.limit_throttle(throttle)
 

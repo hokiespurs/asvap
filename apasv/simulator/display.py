@@ -8,7 +8,7 @@ class display:
 
     def __init__(
         self,
-        size=[1200, 1000],
+        size=[1200, 800],
         hfov=24,
         cam_pos=[0, 0],
         grid=1,
@@ -159,6 +159,73 @@ class display:
         text_rect = text.get_rect(center=(pos[0] + pos[2] / 2, pos[1] + pos[3] / 2))
         self.win.blit(text, text_rect)
 
+    def add_text_rect_data(
+        self,
+        pos,
+        text_str=None,
+        data=None,
+        data_range=[-1, 1],
+        data_colors=[(255, 0, 0), (0, 255, 0)],
+        data_color_range=[[0, 0.5], [0.5, 1]],
+        fontsize=24,
+        bar_relative_start_pos=0.5,
+        bg_color=(255, 255, 255),
+        outline_color=(0, 0, 0),
+        outline_width=1,
+        text_color=(0, 0, 0),
+    ):
+        # draw background for text box
+        if bg_color is not None:
+            pygame.draw.rect(self.win, bg_color, pos, 0)
+
+        # draw colored bar in background
+        if data is not None:
+            bar_start_pos = pos[0] + pos[2] * bar_relative_start_pos
+            bar_end_pos = self.rescale(data, data_range, [pos[0], pos[0] + pos[2]])
+            bar_color = (0, 100, 100)  # shouldn't see this if set correctly
+
+            if data < data_range[0]:
+                data = data_range[0]
+            elif data > data_range[1]:
+                data = data_range[1]
+
+            for d_color, d_c_range in zip(data_colors, data_color_range):
+                lower_lim = self.rescale(d_c_range[0], [0, 1], data_range)
+                upper_lim = self.rescale(d_c_range[1], [0, 1], data_range)
+                if data >= lower_lim and data <= upper_lim:
+                    bar_color = d_color
+                    break
+            bar_width = bar_end_pos - bar_start_pos
+            bar_pos = [bar_start_pos, pos[1], bar_width, pos[3]]
+            pygame.draw.rect(self.win, bar_color, bar_pos)
+        # add text
+        # if text is not None or ""
+        if text_str is not None and text_str != "":
+            font = pygame.font.Font(None, fontsize)
+            text = font.render(text_str, True, text_color)
+            bar_center = [pos[0] + pos[2] / 2, pos[1] + pos[3] / 2]
+            text_rect = text.get_rect(center=bar_center)
+            self.win.blit(text, text_rect)
+
+        # draw border for text box
+        if outline_color is not None:
+            pygame.draw.rect(self.win, outline_color, pos, outline_width)
+
+    @staticmethod
+    def rescale(val, old_limits, new_limits, do_thresh=True):
+        """ rescale a value to a new coordinate system """
+        old_range = old_limits[1] - old_limits[0]
+        new_range = new_limits[1] - new_limits[0]
+        val_0_to_1 = (val - old_limits[0]) / old_range
+
+        if do_thresh:
+            if val_0_to_1 < 0:
+                val_0_to_1 = 0
+            elif val_0_to_1 > 1:
+                val_0_to_1 = 1
+
+        return val_0_to_1 * new_range + new_limits[0]
+
     def draw_ap_stats(self, all_labels, all_label_data):
         y_top = 530
         y_height = 30
@@ -185,9 +252,18 @@ class display:
             self.add_text_rect([80, y_top, 120, y_height], data)
             y_top += y_height
 
-    def draw_boat_throttle(self, boat_throttle):
+    def draw_boat_throttle(
+        self,
+        boat_throttle,
+        pos=[0, 0, 200, 200],
+        outline_width=1,
+        bar_pad=10,
+        bar_color_up=[255, 0, 0],
+        bar_color_down=[0, 255, 0],
+    ):
         # draw subwindow
-        sub_window_width = 200
+
+        sub_window_width = 300
         sub_window_height = 200
         pygame.draw.rect(
             self.win, (200, 200, 200), (0, 0, sub_window_width, sub_window_height), 0

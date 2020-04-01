@@ -15,14 +15,14 @@ sys.path.insert(0, "../autopilot")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
 DEBUG = False
-DEBUG_DELAY = 0.0015
+DEBUG_DELAY = 0.15
 # ------------------- CONSTANTS ----------------------------------
 NTEST = int(1e7)
 MAXSEED = int(1e7)
-PARALLEL_CHUNK_SIZE = 1
+PARALLEL_CHUNK_SIZE = 5000
 NUM_BEST = 10
 # random seed
-RAND_SEED = 13  # random seed to start building random boats
+RAND_SEED = 11  # random seed to start building random boats
 # boat position
 START_POSITION = [0, 0, 0]  # x,y,az
 BOAT_TIMESTEP = 1
@@ -49,16 +49,16 @@ BIAS_METHOD = "randn"
 np.random.seed(RAND_SEED)
 all_rand_seed = np.random.choice(MAXSEED, NTEST, replace=False)
 # all_rand_seed = [
-#     1470477,
-#     1641599,
-#     2456851,
-#     5380374,
-#     7775228,
-#     9769652,
-#     8142836,
-#     3906818,
-#     3502335,
-#     2208792,
+#     9285104,
+#     8012462,
+#     4799088,
+#     667742,
+#     5519602,
+#     5221121,
+#     733074,
+#     2202853,
+#     15210,
+#     8597115,
 # ]
 # DEBUG = True
 # all_rand_seed[0] = 9461794
@@ -81,7 +81,12 @@ my_environment = environment.environment()  # default no currents
 my_environment.get_currents = currents
 
 my_fitness_all = mission.fitness(my_mission, gate_length=1, offline_importance=0.8)
-my_boat_all = boat.boat(pos=START_POSITION, friction=[1, 1, 5, 50], color=[1, 1, 0])
+my_boat_all = boat.boat(
+    pos=START_POSITION,
+    thrust_x_pos=[-0.3, 0.3],
+    friction=[1, 10, 30, 50],
+    color=[1, 1, 0],
+)
 x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
 y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
 my_boat_all.hullshape = np.array([x, y])
@@ -156,7 +161,6 @@ def run_simulation(rand_seed):
     ]
 
 
-# TODO Add mean velocity and mean offline fitness to the "best" table
 # TODO Make "best" table and this run script more modular, maybe in a separate py file
 
 
@@ -191,9 +195,9 @@ def update_best_list(sim_data=None, best_list=None):
 
 def print_sim_results(sim_data, docr=True, rank=0):
     """ Print results to screen """
-    tstr = datetime.datetime.fromtimestamp(sim_data[4]).strftime("%m/%d %H:%M %p")
+    tstr = datetime.datetime.fromtimestamp(sim_data[4]).strftime("%m/%d %I:%M %p")
     print_string = (
-        f" {rank+1:4.0f} |"
+        f" {rank+1:10.0f} |"
         + f"{sim_data[1]:8.2f} |"
         + f"{sim_data[6]:9.2f} |"
         + f"{sim_data[7]:9.2f} |"
@@ -218,7 +222,8 @@ def print_best_list(best_list):
     system("cls")
     # print header
     headerstr = (
-        " RANK | FITNESS | PER GATE |  OFF FIT |  VEL FIT | % COMPLETE | BOAT TIME |"
+        "       RANK | FITNESS | PER GATE |  OFF FIT |"
+        + "  VEL FIT | % COMPLETE | BOAT TIME |"
         + "         SEED |        DATETIME | CPU TIME"
     )
     print(headerstr)
@@ -243,7 +248,9 @@ if __name__ == "__main__":
                     best_list, _ = update_best_list(sim_results, best_list)
             print_best_list(best_list)
             t_chunk = time.time() - t_chunk_start
-            print(f"CHUNK {current_num:.0f} x {PARALLEL_CHUNK_SIZE} in {t_chunk:.2f}s")
+            print(
+                f"CHUNK {current_num:,.0f} x {PARALLEL_CHUNK_SIZE:,.0f} in {t_chunk:.2f}s"
+            )
             current_num += PARALLEL_CHUNK_SIZE
 
     else:

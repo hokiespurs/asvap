@@ -5,9 +5,9 @@ from simulator import boat, display, environment, mission, simulator
 from autopilot import autopilot
 
 # CONSTANTS
-THROTTLE_STEP = 5
+THROTTLE_STEP = 50
 BOAT_TIMESTEP = 0.1
-VISUAL_DELAY = 0.01
+VISUAL_DELAY = 0.05
 
 key_list = {
     "left_throttle_up": pygame.K_q,
@@ -78,12 +78,21 @@ def update_throttle(keys_pressed, cur_throttle):
 
 my_visual = display.display()
 
-my_boat = boat.boat(friction=[1, 1, 5, 50], color=[1, 1, 0])
+my_boat = boat.boat(
+    mass=5,
+    rotational_mass=0.5,
+    friction=[3, 10, 30, 50],
+    thrust_x_pos=[-0.2, 0.2],
+    color=[1, 1, 0],
+    friction_function=lambda friction, vel: friction * (vel ** 3 / 10 + vel),
+    friction_function_rotation=lambda friction, vel: friction * (vel ** 3 / 10 + vel),
+)
+# f * (v ** 3 / 10 + v)
 x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
 y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
 my_boat.hullshape = np.array([x, y])
 mission_name = "./data/missions/increasingangle.txt"
-my_mission = mission.mission(survey_line_filename=mission_name, flip_x=True)
+my_mission = mission.mission(survey_line_filename=mission_name, flip_x=False)
 my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.5)
 my_autopilot = autopilot.ap_nn(my_mission.survey_lines, num_neurons=[10],)
 

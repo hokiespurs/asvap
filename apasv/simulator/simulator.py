@@ -1,5 +1,6 @@
 import numpy as np
 import pygame
+import matplotlib.pyplot as plt
 
 
 class simulator:
@@ -64,71 +65,201 @@ class simulator:
         self.draw_mission()
         self.draw_boat_path()
         self.draw_boat()
-        self.visual.draw_boat_throttle(self.boat.throttle)
+        # self.visual.draw_boat_throttle(self.boat.throttle)
         self.draw_stats()
-        if self.autopilot is not None:
-            self.visual.draw_ap_stats(
-                self.autopilot.debug_autopilot_labels,
-                self.autopilot.debug_autopilot_label_data,
-            )
         self.keys_pressed = self.visual.update()
         pygame.time.delay(int(pause_time * 1000))
-
-    def update_visual_noblit(self, pause_time=0.1):
-        """ Update the pygame visual """
-        self.visual.draw_background()
-        self.draw_gate()
-        self.visual.draw_grid()
-        self.draw_mission()
-        self.draw_boat_path()
-        self.draw_boat()
-        self.visual.draw_boat_throttle(self.boat.throttle)
-        self.draw_stats()
-        # self.keys_pressed = self.visual.update()
-        # pygame.time.delay(int(pause_time * 1000))
 
     def draw_stats(self):
         label_string = []
         data_string = []
+        data_val = []
+        data_val_range = []
+        data_center = []
+        data_color_range = []
+        data_colors = []
 
-        # Time
-        label_string.append("time")
-        data_string.append(f"{self.boat.time:.1f}")
+        BOAT_COLOR = [[255, 0, 0], [0, 255, 0]]
+        AUTO_COLOR = [[155, 0, 50], [50, 200, 0]]
+        PARTIAL_COLOR = [[200, 180, 150], [200, 200, 240]]
+        # Throttle Left
+        label_string.append("Throttle L")
+        data_string.append(f"{self.boat.throttle[0]:+4.0f}")
+        data_val.append(self.boat.throttle[0])
+        data_val_range.append([-100, 100])
+        data_center.append(0.5)
+        data_color_range.append([[0, 0.5], [0.5, 1]])
+        data_colors.append(BOAT_COLOR)
 
-        # pos_offline
-        line = self.fitness.mission.survey_lines[self.fitness.current_survey_line]
-        pos_xy = np.hstack((self.boat.pos["x"], self.boat.pos["y"])).reshape(1, 2)
-        downline_pos, offline_pos = self.fitness.xy_to_downline_offline(
-            pos_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]]
-        )
-        label_string.append("offline")
-        data_string.append(f"{offline_pos[0]:+.2f}")
+        # Throttle Right
+        label_string.append("Throttle R")
+        data_string.append(f"{self.boat.throttle[1]:+4.0f}")
+        data_val.append(self.boat.throttle[1])
+        data_val_range.append([-100, 100])
+        data_center.append(0.5)
+        data_color_range.append([[0, 0.5], [0.5, 1]])
+        data_colors.append(BOAT_COLOR)
 
-        # vel_downline (delta)
+        # Downline Velocity
+        if self.autopilot is not None:
+            line = self.fitness.mission.survey_lines[self.autopilot.current_line]
+        else:
+            line = self.fitness.mission.survey_lines[self.fitness.current_survey_line]
+
         vel_xy = np.hstack(
             (self.boat.vel_world["x"], self.boat.vel_world["y"])
         ).reshape(1, 2)
         downline_vel, offline_vel = self.fitness.xy_to_downline_offline(
             vel_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]], True
         )
-        label_string.append("vel_line")
+
+        label_string.append("Downline Velocity")
+        data_string.append(f"{downline_vel[0]:+5.2f}")
+        data_val.append(None)
+        data_val_range.append(None)
+        data_center.append(None)
+        data_color_range.append(None)
+        data_colors.append(None)
+
+        # Velocity Error
         delta_vel_downline = downline_vel - line["goal_speed"]
-        data_string.append(f"{downline_vel[0]:.2f} ({delta_vel_downline[0]:+.2f})")
+        label_string.append("Velocity Error")
+        data_string.append(f"{delta_vel_downline[0]:+4.2f}")
+        data_val.append(delta_vel_downline[0])
+        data_val_range.append([-0.5, 0.5])
+        data_center.append(0.5)
+        data_color_range.append([[0, 0.5], [0.5, 1]])
+        data_colors.append(BOAT_COLOR)
+
+        # pos_offline
+        pos_xy = np.hstack((self.boat.pos["x"], self.boat.pos["y"])).reshape(1, 2)
+        downline_pos, offline_pos = self.fitness.xy_to_downline_offline(
+            pos_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]]
+        )
+
+        label_string.append("Offline")
+        data_string.append(f"{offline_pos[0]:+5.2f}")
+        data_val.append(-offline_pos)
+        data_val_range.append([-2, 2])
+        data_center.append(0.5)
+        data_color_range.append([[0, 0.5], [0.5, 1]])
+        data_colors.append(BOAT_COLOR)
 
         # fitness
-        label_string.append("Fitness")
         if self.fitness.current_gate_num == 0:
             avg_per_gate = 0
         else:
             avg_per_gate = self.get_fitness() / (self.fitness.current_gate_num)
-        data_string.append(f"{self.get_fitness():.1f} ({avg_per_gate:.2f})")
 
-        # fitness
-        label_string.append("fps")
-        data_string.append(f"{self.visual.fps:.1f}")
+        label_string.append("Fitness")
+        data_string.append(f"{self.get_fitness():+5.2f} ({avg_per_gate:3.2f})")
+        data_val.append(None)
+        data_val_range.append(None)
+        data_center.append(None)
+        data_color_range.append(None)
+        data_colors.append(None)
+
+        # Time
+        label_string.append("Time")
+        data_string.append(f"{self.boat.time:.1f}")
+        data_val.append(None)
+        data_val_range.append(None)
+        data_center.append(None)
+        data_color_range.append(None)
+        data_colors.append(None)
+
+        # FPS
+        label_string.append("FPS")
+        data_string.append(f"{self.visual.fps:.2f}")
+        data_val.append(None)
+        data_val_range.append(None)
+        data_center.append(None)
+        data_color_range.append(None)
+        data_colors.append(None)
 
         # draw all labels
-        self.visual.draw_stats(label_string, data_string)
+        X_POS = 0
+        Y_POS = 0
+        LABEL_WIDTH = 150
+        DATA_WIDTH = 150
+        HEIGHT = 30
+
+        current_y_pos = Y_POS
+        self.visual.add_text_rect_data(
+            pos=[X_POS, current_y_pos, LABEL_WIDTH + DATA_WIDTH, HEIGHT],
+            text_str="BOAT DATA",
+        )
+        current_y_pos += HEIGHT
+        for i in range(len(label_string)):
+
+            self.visual.add_text_rect_data(
+                pos=[X_POS, current_y_pos, LABEL_WIDTH, HEIGHT],
+                text_str=label_string[i],
+            )
+            self.visual.add_text_rect_data(
+                pos=[X_POS + LABEL_WIDTH, current_y_pos, DATA_WIDTH, HEIGHT],
+                text_str=data_string[i],
+                data=data_val[i],
+                data_range=data_val_range[i],
+                bar_relative_start_pos=data_center[i],
+                data_color_range=data_color_range[i],
+                data_colors=data_colors[i],
+            )
+            current_y_pos += HEIGHT
+
+        if self.autopilot is not None:
+            # add titlebar
+            self.visual.add_text_rect_data(
+                pos=[X_POS, current_y_pos, LABEL_WIDTH + DATA_WIDTH, HEIGHT],
+                text_str="AUTOPILOT DATA",
+            )
+            current_y_pos += HEIGHT
+            # look through each label
+            for (label, data, partials) in zip(
+                self.autopilot.debug_autopilot_labels,
+                self.autopilot.debug_autopilot_label_data,
+                self.autopilot.debug_autopilot_partials,
+            ):
+                # add partials
+                if partials is not None:
+                    num_partials = len(partials)
+                    for i, partial in enumerate(partials):
+                        self.visual.add_text_rect_data(
+                            pos=[
+                                X_POS,
+                                current_y_pos + i * HEIGHT * 1 / num_partials,
+                                LABEL_WIDTH,
+                                HEIGHT * 1 / num_partials,
+                            ],
+                            text_str=None,
+                            fontsize=12,
+                            text_color=(150, 150, 150),
+                            data=partial,
+                            data_range=[-1, 1],
+                            bar_relative_start_pos=0.5,
+                            outline_color=None,
+                            data_colors=PARTIAL_COLOR,
+                        )
+                        bg_color = None
+                else:
+                    bg_color = (255, 255, 255)
+
+                # add labels
+                self.visual.add_text_rect_data(
+                    pos=[X_POS, current_y_pos, LABEL_WIDTH, HEIGHT],
+                    text_str=label,
+                    bg_color=bg_color,
+                )
+                # add numbers
+                self.visual.add_text_rect_data(
+                    pos=[X_POS + LABEL_WIDTH, current_y_pos, DATA_WIDTH, HEIGHT],
+                    text_str=f"{data[0]:+.2f}",
+                    data=data,
+                    data_range=[-1, 1],
+                    bar_relative_start_pos=0.5,
+                    data_colors=AUTO_COLOR,
+                )
+                current_y_pos += HEIGHT
 
     def draw_boat(self):
         boat_poly = self.boat.get_boat_polygon(
@@ -197,20 +328,27 @@ if __name__ == "__main__":
     mission_name = "./data/missions/increasingangle.txt"
     my_mission = mission.mission(survey_line_filename=mission_name)
     my_fitness = mission.fitness(my_mission, gate_length=0.5, offline_importance=0.5)
-    my_fitness.current_gate_num = 15
+    my_fitness.current_gate_num = 0
     my_environment = environment.environment()
     my_environment.get_currents = lambda xy: [0, 0]
     my_simulator = simulator(
         boat=my_boat, fitness=my_fitness, environment=my_environment, visual=my_visual,
     )
 
-    for x in range(1000):
+    for i in range(50):
         if my_simulator.visual.running:
             # my_boat.throttle = ((2 * np.random.rand(2, 1) - 1) * 100).squeeze()
-            my_simulator.set_boat_control([60, 60])
-
+            if i < 5:
+                my_simulator.set_boat_control([81, 80])
+            else:
+                my_simulator.set_boat_control([61, 62])
             my_simulator.update_boat(1, 10)
             my_simulator.update_visual(0.1)
             if my_simulator.keys_pressed[pygame.K_LEFT]:
                 print("LEFT")
     print(my_simulator.get_fitness())
+    # fitness_per_gate = []
+    # for gate_fitness in my_fitness.all_gate_fitness:
+    #     fitness_per_gate.append(gate_fitness["fitness"])
+    # plt.plot(fitness_per_gate)
+    # plt.show()
