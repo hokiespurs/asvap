@@ -46,9 +46,10 @@ class simulator:
     def update_boat(self, t, n):
         """ update the boat position for t seconds using n steps """
         self.boat.update_position(t, n, self.environment.get_currents)
+        t = self.boat.history[:, 0]
         pos_xy = self.boat.history[:, [1, 2]]
         vel_xy = self.boat.history[:, [4, 5]]
-        self.fitness.update_fitness(pos_xy, vel_xy)
+        self.fitness.update_fitness(t, pos_xy, vel_xy)
 
     def update_just_key_input(self):
         self.keys_pressed = self.visual.update()

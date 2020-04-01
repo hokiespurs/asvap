@@ -26,16 +26,17 @@ RAND_SEED = 11  # random seed to start building random boats
 # boat position
 START_POSITION = [0, 0, 0]  # x,y,az
 BOAT_TIMESTEP = 1
-NUM_SUBSTEPS = 10
-MAX_TIME = 800
+NUM_SUBSTEPS = 5
+MAX_TIME = 1000
+MAX_TIME_BETWEEN_SEQUENTIAL_GATE = 20
+MAX_TIME_BETWEEN_LINES = 50
 CUTOFFS = [
-    [5, 0.1],
+    [5, 0.1],  # time to gate 1
     [50, 20],
     [100, 20],
     [200, 50],
     [300, 75],
 ]  # [time,fitness]
-# TODO make cutoffs automatically figure themselves out as it goes
 MISSION_NAME = "./data/missions/increasingangle.txt"
 # neural net
 NUM_NODES = [30, 30, 30]
@@ -128,7 +129,29 @@ def run_simulation(rand_seed):
             was_cutoff_checked, my_boat.time, my_simulator.get_fitness()
         )
         not_ap_complete = not my_autopilot.mission_complete
-        loop_criteria = good_time and gates_left and missed_cutoff and not_ap_complete
+        if my_fitness.current_gate_num > 0:
+            t_between_gate = (
+                my_boat.time
+                - my_fitness.all_gate_fitness[my_fitness.current_gate_num - 1]["time"]
+            )
+            is_between_lines = (
+                my_fitness.all_gate[my_fitness.current_gate_num - 1]["line_num"]
+                != my_fitness.all_gate[my_fitness.current_gate_num]["line_num"]
+            )
+        else:
+            t_between_gate = 0
+            is_between_lines = True
+
+        good_t_between_gate = (
+            t_between_gate < MAX_TIME_BETWEEN_SEQUENTIAL_GATE or is_between_lines
+        ) and (t_between_gate < MAX_TIME_BETWEEN_LINES)
+        loop_criteria = (
+            good_time
+            and gates_left
+            and missed_cutoff
+            and not_ap_complete
+            and good_t_between_gate
+        )
         if DEBUG:
             my_simulator.update_visual(DEBUG_DELAY)
             if not my_simulator.visual.running:
@@ -160,7 +183,7 @@ def run_simulation(rand_seed):
     ]
 
 
-# TODO Make "best" table and this run script more modular, maybe in a separate py file
+# TODO Make run script more modular, maybe in a separate py file
 
 
 def is_cutoffs_good(is_cutoff_checked, t, fitness):
@@ -239,7 +262,8 @@ if __name__ == "__main__":
         # wont process the last sub-chunk, but thats fine
         while current_num < len(all_rand_seed):
             current_inds = current_num + np.arange(PARALLEL_CHUNK_SIZE)
-            chunk_seeds = all_rand_seed[current_num : current_num + PARALLEL_CHUNK_SIZE]
+            last_ind = current_num + PARALLEL_CHUNK_SIZE
+            chunk_seeds = all_rand_seed[current_num:last_ind]
             t_chunk_start = time.time()
             with concurrent.futures.ProcessPoolExecutor(max_workers=60) as executor:
                 chunk_results = executor.map(run_simulation, chunk_seeds)

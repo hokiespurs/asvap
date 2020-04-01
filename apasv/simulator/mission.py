@@ -188,10 +188,11 @@ class fitness:
                 all_gate.append(gate_vals)
         return all_gate
 
-    def update_fitness(self, pos_xy, vel_xy):
+    def update_fitness(self, t, pos_xy, vel_xy):
         """ Update fitness data """
         # Get only new position and velocity data
         last_ind = self.last_boat_history_ind
+        new_t = t[last_ind:]
         new_pos_xy = pos_xy[last_ind:, :]
         new_vel_xy = vel_xy[last_ind:, :]
         self.last_boat_history_ind = pos_xy.shape[0]
@@ -223,11 +224,13 @@ class fitness:
             # update fitness for all in the gate
             if any(ind_in_gate):
                 self.update_fitness_gate(
+                    new_t[ind_in_gate],
                     offline_pos[ind_in_gate],
                     downline_vel[ind_in_gate] - current_gate["goal_speed"],
                 )
                 # remove these points from new data
                 ind_other_points = np.bitwise_not(ind_in_gate)
+                new_t = new_t[ind_other_points]
                 new_pos_xy = new_pos_xy[ind_other_points, :]
                 new_vel_xy = new_vel_xy[ind_other_points, :]
                 is_more_data = new_pos_xy.shape[0] > 0
@@ -246,8 +249,9 @@ class fitness:
                 return
         return
 
-    def update_fitness_gate(self, offline, velocity):
+    def update_fitness_gate(self, t, offline, velocity):
         """ Update the fitness data in the current gate """
+        max_time = t[-1]
         # number of values in the current sample
         num_new_vals = offline.size
         num_old_vals = self.all_gate_fitness[self.current_gate_num]["npts"]
@@ -263,6 +267,7 @@ class fitness:
         # if it's all new data, just populate it directly
         if num_old_vals == 0:
             self.all_gate_fitness[self.current_gate_num] = {
+                "time": max_time,
                 "npts": num_new_vals,
                 "mean_fitness": np.mean(total_fitness),
                 "min_fitness": np.min(total_fitness),
@@ -311,6 +316,7 @@ class fitness:
             velocity_fitness_change = new_mean_vel - old_data["mean_velocity"]
 
             self.all_gate_fitness[self.current_gate_num] = {
+                "time": max_time,
                 "npts": new_npts,
                 "mean_fitness": new_mean_fitness,
                 "min_fitness": new_min_fitness,
@@ -456,10 +462,11 @@ def main():
             myboat.throttle = [80, 80]
         myboat.update_position(1, 10)
 
+        t = myboat.history[:, 0]
         pos_xy = myboat.history[:, [1, 2]]
         vel_xy = myboat.history[:, [4, 5]]
 
-        my_fitness.update_fitness(pos_xy, vel_xy)
+        my_fitness.update_fitness(t, pos_xy, vel_xy)
 
     fig, ax = plt.subplots()
     my_mission.plot_survey_lines(ax)
