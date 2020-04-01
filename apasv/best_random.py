@@ -15,10 +15,10 @@ sys.path.insert(0, "../autopilot")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
 DEBUG = False
-DEBUG_DELAY = 0.15
+DEBUG_DELAY = 0.0015
 # ------------------- CONSTANTS ----------------------------------
-NTEST = int(1e7)
-MAXSEED = int(1e7)
+NTEST = int(1e9)
+MAXSEED = int(1e9)
 PARALLEL_CHUNK_SIZE = 5000
 NUM_BEST = 10
 # random seed
@@ -46,19 +46,23 @@ WEIGHT_METHOD = "randn"
 BIAS_METHOD = "randn"
 
 # create random seeds
-np.random.seed(RAND_SEED)
-all_rand_seed = np.random.choice(MAXSEED, NTEST, replace=False)
+if NTEST == MAXSEED:
+    all_rand_seed = range(NTEST)
+else:
+    rng = np.random.default_rng(RAND_SEED)
+    all_rand_seed = rng.choice(MAXSEED, NTEST, replace=False)
+
 # all_rand_seed = [
-#     5631737,
-#     8012462,
-#     4799088,
-#     667742,
-#     5519602,
-#     5221121,
-#     733074,
-#     2202853,
-#     15210,
-#     8597115,
+#     5542162,
+#     9112307,
+#     9354435,
+#     9488844,
+#     2663606,
+#     6371523,
+#     1585231,
+#     2224839,
+#     5180721,
+#     9566888,
 # ]
 # DEBUG = True
 # all_rand_seed[0] = 9461794
@@ -75,7 +79,7 @@ def currents(xy):
     return [0, 0]
 
 
-my_mission = mission.mission(survey_line_filename=MISSION_NAME)
+my_mission = mission.mission(survey_line_filename=MISSION_NAME, flip_x=False)
 my_environment = environment.environment()  # default no currents
 
 my_environment.get_currents = currents
@@ -235,7 +239,7 @@ if __name__ == "__main__":
         # wont process the last sub-chunk, but thats fine
         while current_num < len(all_rand_seed):
             current_inds = current_num + np.arange(PARALLEL_CHUNK_SIZE)
-            chunk_seeds = all_rand_seed[current_inds]
+            chunk_seeds = all_rand_seed[current_num : current_num + PARALLEL_CHUNK_SIZE]
             t_chunk_start = time.time()
             with concurrent.futures.ProcessPoolExecutor(max_workers=60) as executor:
                 chunk_results = executor.map(run_simulation, chunk_seeds)

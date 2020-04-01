@@ -33,6 +33,7 @@ class neuralnetwork:
         self.num_neurons = num_neurons
         self.output_softmax = output_softmax
         self.rand_seed = rand_seed
+        self.random_generator = np.random.default_rng(rand_seed)
         self.rand_weights_method = rand_weights_method
         self.rand_weights_scalar = rand_weights_scalar
         self.rand_biases_method = rand_biases_method
@@ -62,7 +63,6 @@ class neuralnetwork:
     def random_biases(self):
         """ Initialize random biases """
         # use rand_seed+1 so values arent same as weights
-        np.random.seed(self.rand_seed + 1)
         _, correct_bias_shapes = self.get_correct_nn_sizes()
 
         self.biases = []
@@ -77,7 +77,6 @@ class neuralnetwork:
 
     def random_weights(self):
         """ Initialize random weights """
-        np.random.seed(self.rand_seed)
         correct_weight_shapes, _ = self.get_correct_nn_sizes()
 
         self.weights = []
@@ -93,13 +92,13 @@ class neuralnetwork:
     def get_random_vals(self, method, num_row, num_col, scalar=1):
         """ return random sample from different population methods """
         if method == "rand":
-            return np.random.rand(num_row, num_col) * scalar
+            return self.random_generator.random((num_row, num_col)) * scalar
         elif method == "randn":
-            return np.random.randn(num_row, num_col) * scalar
+            return self.random_generator.standard_normal((num_row, num_col)) * scalar
         elif method == "zeros":
             return np.zeros((num_row, num_col))
         elif method == "randpm":
-            return (2 * np.random.rand(num_row, num_col) - 1) * scalar
+            return (2 * self.random_generator.random((num_row, num_col)) - 1) * scalar
         else:
             # this exception should be raised in the weights/bias functions beforehand
             raise ValueError("Unknown method ('rand','randn','randpm','zeros')")

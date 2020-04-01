@@ -379,5 +379,3 @@ if __name__ == "__main__":
     plt.subplot(2, 1, 2)
     plt.plot(t, az)
     plt.show()
-
-# TODO determine default boat kinematics
