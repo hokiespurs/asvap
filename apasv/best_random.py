@@ -49,7 +49,7 @@ BIAS_METHOD = "randn"
 np.random.seed(RAND_SEED)
 all_rand_seed = np.random.choice(MAXSEED, NTEST, replace=False)
 # all_rand_seed = [
-#     9285104,
+#     5631737,
 #     8012462,
 #     4799088,
 #     667742,
@@ -81,12 +81,7 @@ my_environment = environment.environment()  # default no currents
 my_environment.get_currents = currents
 
 my_fitness_all = mission.fitness(my_mission, gate_length=1, offline_importance=0.8)
-my_boat_all = boat.boat(
-    pos=START_POSITION,
-    thrust_x_pos=[-0.3, 0.3],
-    friction=[1, 10, 30, 50],
-    color=[1, 1, 0],
-)
+my_boat_all = boat.boat(pos=START_POSITION,)
 x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
 y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
 my_boat_all.hullshape = np.array([x, y])
