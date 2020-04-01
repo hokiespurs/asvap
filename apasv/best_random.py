@@ -54,7 +54,7 @@ else:
     all_rand_seed = rng.choice(MAXSEED, NTEST, replace=False)
 
 # all_rand_seed = [
-#     5542162,
+#     10277,
 #     9112307,
 #     9354435,
 #     9488844,
@@ -129,7 +129,9 @@ def run_simulation(rand_seed):
             was_cutoff_checked, my_boat.time, my_simulator.get_fitness()
         )
         not_ap_complete = not my_autopilot.mission_complete
-        if my_fitness.current_gate_num > 0:
+        if my_fitness.current_gate_num > 0 and my_fitness.current_gate_num < len(
+            my_fitness.all_gate_fitness
+        ):
             t_between_gate = (
                 my_boat.time
                 - my_fitness.all_gate_fitness[my_fitness.current_gate_num - 1]["time"]
