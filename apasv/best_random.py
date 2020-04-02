@@ -14,9 +14,10 @@ sys.path.insert(0, "../autopilot")
 # only print pygame welcome message to screen once on import
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
-DEBUG = False
-DEBUG_DELAY = 0.0015
 # ------------------- CONSTANTS ----------------------------------
+DEBUG = False
+DEBUG_DELAY = 0.015
+#
 NTEST = int(1e9)
 MAXSEED = int(1e9)
 PARALLEL_CHUNK_SIZE = 5000
@@ -28,8 +29,8 @@ START_POSITION = [0, 0, 0]  # x,y,az
 BOAT_TIMESTEP = 1
 NUM_SUBSTEPS = 5
 MAX_TIME = 1000
-MAX_TIME_BETWEEN_SEQUENTIAL_GATE = 20
-MAX_TIME_BETWEEN_LINES = 50
+MAX_TIME_BETWEEN_SEQUENTIAL_GATE = 10
+MAX_TIME_BETWEEN_LINES = 30
 CUTOFFS = [
     [5, 0.1],  # time to gate 1
     [50, 20],
@@ -53,19 +54,19 @@ else:
     rng = np.random.default_rng(RAND_SEED)
     all_rand_seed = rng.choice(MAXSEED, NTEST, replace=False)
 
-# all_rand_seed = [
-#     10277,
-#     9112307,
-#     9354435,
-#     9488844,
-#     2663606,
-#     6371523,
-#     1585231,
-#     2224839,
-#     5180721,
-#     9566888,
-# ]
-# DEBUG = True
+all_rand_seed = [
+    511690,
+    70760,
+    269924,
+    151699,
+    307418,
+    165866,
+    224968,
+    232514,
+    100493,
+    10277,
+]
+DEBUG = True
 # all_rand_seed[0] = 9461794
 
 # create mission and environment
@@ -169,9 +170,9 @@ def run_simulation(rand_seed):
     if fitness_score == 0:
         avg_fitness = 0
     else:
-        avg_fitness = fitness_score / my_fitness.current_gate_num
-        mean_offline_fitness /= my_fitness.current_gate_num
-        mean_velocity_fitness /= my_fitness.current_gate_num
+        avg_fitness = fitness_score / my_fitness.current_gate_num + 1
+        mean_offline_fitness /= my_fitness.current_gate_num + 1
+        mean_velocity_fitness /= my_fitness.current_gate_num + 1
     return [
         rand_seed,
         fitness_score,

@@ -20,6 +20,7 @@ class autopilot:
         self.debug_autopilot_labels = ["AP"]
         self.debug_autopilot_label_data = 0
         self.debug_autopilot_partials = None
+        self.id = None
 
     def make_fake_survey_line(self):
         """ Make a fake survey line for debugging """
@@ -153,6 +154,7 @@ class ap_nn(autopilot):
             rand_biases_method=rand_biases_method,
             rand_biases_scalar=rand_biases_scalar,
         )
+        self.id = f"{rand_seed:10.0f}"
 
     def calc_nn_inputs(self, new_data):
         """ calculate parameters for input to the neural network"""
