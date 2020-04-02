@@ -87,7 +87,7 @@ my_environment = environment.environment()  # default no currents
 my_environment.get_currents = currents
 
 my_fitness_all = mission.fitness(my_mission, gate_length=1, offline_importance=0.8)
-my_boat_all = boat.boat(pos=START_POSITION,)
+my_boat_all = boat.boat(pos=START_POSITION)
 x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
 y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
 my_boat_all.hullshape = np.array([x, y])
