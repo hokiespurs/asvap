@@ -15,9 +15,10 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
 # for parallel processing, everything has to be pickleable
 # so make the method out here and have it take a class with all the variables it needs
+
+
 def run_simulation(my_autopilot, simvars):
     """ creates and runs an individual simulation """
-    print("got into the simulation")
     t_start_simulation = time.time()
     # create the simulator
     # use deepcopy for boat and fitness to protect parallel runs
@@ -110,84 +111,42 @@ def run_simulation(my_autopilot, simvars):
 
 
 class batchrun:
-    def __init__(self, name, num_best, save_dir):
-        pass
-
-
-class batchdata:
     def __init__(
-        self,
-        batch_mission,
-        batch_environment,
-        batch_boat,
-        batch_fitness,
-        do_visual=False,
-        visual_timestep=0.1,
-        name=None,
-        timestep=1,
-        num_substeps=10,
-        cutoff_max_time=1000,
-        cutoff_time_gates_same_line=10,
-        cutoff_time_gates_different_line=30,
-        cutoff_thresh=None,
-        num_best=20,
-        save_dir="../data/batchruns/",
+        self, name=None, num_best=10, save_dir="../data/batchruns/",
     ):
-        self.mission = batch_mission
-        self.environment = batch_environment
-        self.boat = batch_boat
-        self.fitness = batch_fitness
-        # visual
-        self.do_visual = do_visual
-        self.visual_timestep = visual_timestep
-        if self.do_visual is True:
-            self.visual = display.display()
-        else:
-            self.visual = None
-
         # name and dir for saving results
         self.name = name
         self.save_dir = save_dir
-
-        # movement variables
-        self.timestep = timestep
-        self.num_substeps = num_substeps
-
-        # cutoff variables for when to stop a simulation
-        self.cutoff_max_time = cutoff_max_time
-        self.cutoff_time_gates_same_line = cutoff_time_gates_same_line
-        self.cutoff_time_gates_different_line = cutoff_time_gates_different_line
-        if cutoff_thresh is None:
-            cutoff_thresh = [[0, -999]]
-        self.cutoff_thresh = cutoff_thresh
 
         # store best runs
         self.num_best = num_best
         self.reset_best_simulations()  # preallocate best runs
 
-    def run(self, autopilot_list, do_parallel=False):
+    def run(self, autopilot_list, batchdata, do_parallel=False):
         """ run each of the list of autopilots """
         t_start_run = time.time()
         # if visual is true, or not going to be parallel
-        if self.do_visual or not do_parallel:
+        if batchdata.do_visual or not do_parallel:
             for i, ap in enumerate(autopilot_list):
                 # run simulation
-                sim_result = self.run_simulation(ap)
+                sim_result = run_simulation(ap, batchdata)
                 # see if simulation result made it into best_runs
                 is_changed = self.update_best_simulations(sim_result)
                 if is_changed:
                     self.print_best_runs()
                 else:
                     self.print_individual_run(sim_result, docr=False, rank=i)
-                if self.do_visual:
-                    if not self.visual.running:  # if pygame visual closed
+                if batchdata.do_visual:
+                    if not batchdata.visual.running:  # if pygame visual closed
                         break
         # run parallel
         else:
+            all_batch_data = [batchdata] * len(autopilot_list)
             with concurrent.futures.ProcessPoolExecutor(max_workers=60) as executor:
-                all_sim_results = executor.map(self.run_simulation, autopilot_list)
+                all_sim_results = executor.map(
+                    run_simulation, autopilot_list, all_batch_data
+                )
                 for sim_result in all_sim_results:
-                    print("got results")
                     self.update_best_simulations(sim_result)
             self.print_best_runs()
 
@@ -196,134 +155,6 @@ class batchdata:
         print("")
         print(f"Run in: {run_duration:.3f}")
         return run_duration
-
-    def run_simulation(self, my_autopilot):
-        """ creates and runs an individual simulation """
-        print("got into the simulation")
-        t_start_simulation = time.time()
-        # create the simulator
-        # use deepcopy for boat and fitness to protect parallel runs
-        my_simulator = simulator.simulator(
-            boat=deepcopy(self.boat),
-            environment=self.environment,
-            visual=self.visual,
-            fitness=deepcopy(self.fitness),
-            autopilot=my_autopilot,
-        )
-        # preallocate for the cutoff thresholds
-        was_cutoff_checked = [False] * len(self.cutoff_thresh)
-        loop_criteria = True
-        while loop_criteria:
-            # get autopilot info and move the boat
-            boat_data = my_simulator.get_boat_data()
-            new_throttle = my_autopilot.calc_boat_throttle(boat_data)
-            my_simulator.set_boat_control(new_throttle)
-            my_simulator.update_boat(self.timestep, self.num_substeps)
-            if self.do_visual:
-                my_simulator.update_visual(self.visual_timestep)
-                if not self.visual.running:
-                    break
-            # check if loop_criteria is still valid
-            # only check the next criteria if the previous one has been met
-            boat_time = my_simulator.boat.time
-            is_gates_left = False
-            is_made_cutoffs = False
-            is_ap_not_complete = False
-            is_gate_time_gap_good = False
-            is_below_max_time = boat_time < self.cutoff_max_time
-            if not is_below_max_time:
-                break
-
-            is_gates_left = not my_simulator.fitness.mission_complete
-
-            if not is_gates_left:
-                break
-
-            is_made_cutoffs = self.check_cutoff_thresh(
-                boat_time, was_cutoff_checked, my_simulator.get_fitness
-            )
-
-            if not is_made_cutoffs:
-                break
-
-            is_ap_not_complete = not my_autopilot.mission_complete
-
-            if not is_ap_not_complete:
-                break
-
-            is_gate_time_gap_good = self.check_gate_time_gap(
-                boat_time, my_simulator.fitness
-            )
-
-            if not is_gate_time_gap_good:
-                break
-
-        # STATS TO RETURN
-        # time in seconds to run the simulation
-        time_to_run = time.time() - t_start_simulation
-        # percent complete
-        current_gate = my_simulator.fitness.current_gate_num
-        total_gates = len(my_simulator.fitness.all_gate)
-        percent_complete = 100 * current_gate / total_gates
-        # clock time
-        clock_time = time.time()
-        # overall fitness
-        fitness_score = my_simulator.get_fitness()
-        offline_fitness_score = my_simulator.fitness.mean_offline_fitness
-        velocity_fitness_score = my_simulator.fitness.mean_velocity_fitness
-        # average fitness
-        if current_gate == total_gates:
-            current_gate -= 1  # otherwise it'd be dividing by too many gates
-        mean_fitness_score = fitness_score / (current_gate + 1)
-        mean_offline_fitness = offline_fitness_score / (current_gate + 1)
-        mean_velocity_fitness = velocity_fitness_score / (current_gate + 1)
-
-        return {
-            "id": my_autopilot.id,
-            "fitness": fitness_score,
-            "percent_complete": percent_complete,
-            "boat_time": boat_time,
-            "clock": clock_time,
-            "run_time": time_to_run,
-            "mean_fitness": mean_fitness_score,
-            "mean_offline_fitness": mean_offline_fitness,
-            "mean_velocity_fitness": mean_velocity_fitness,
-        }
-
-    def check_gate_time_gap(self, boat_time, my_fitness):
-        """ Check if gap between gates meets the thresholds """
-        if my_fitness.current_gate_num > 0:
-            gate_num = my_fitness.current_gate_num
-            is_same_line = (
-                my_fitness.all_gate[gate_num - 1]["line_num"]
-                == my_fitness.all_gate[gate_num]["line_num"]
-            )
-            t_between_gate = (
-                boat_time - my_fitness.all_gate_fitness[gate_num - 1]["time"]
-            )
-            if is_same_line:
-                # 1) between gates on the same line
-                if t_between_gate > self.cutoff_time_gates_same_line:
-                    return False
-            else:
-                # 2) between gates on different lines
-                if t_between_gate > self.cutoff_time_gates_different_line:
-                    return False
-
-        return True
-
-    def check_cutoff_thresh(self, boat_time, was_checked, fitness_fun):
-        """ Check if threshhold was met """
-        # only compute fitness if it needed to check
-        for i, (time_fitness, is_checked) in enumerate(
-            zip(self.cutoff_thresh, was_checked)
-        ):
-            if boat_time > time_fitness[0] and not is_checked:
-                was_checked[i] = True
-                if fitness_fun() < time_fitness[1]:
-                    return False
-
-        return True
 
     def reset_best_simulations(self):
         val = {
@@ -397,20 +228,13 @@ class batchdata:
             print(print_string, end="\r")
 
 
-if __name__ == "__main__":
-    MISSION_NAME = "./data/missions/increasingangle.txt"
-    my_mission = mission.mission(survey_line_filename=MISSION_NAME, flip_x=False)
-    my_environment = environment.environment()  # default no currents
-    my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.8)
-    my_boat = boat.boat()
-    # make batchrun class
-    my_batch = batchrun(
-        my_mission,
-        my_environment,
-        my_boat,
-        my_fitness,
-        do_visual=True,
-        visual_timestep=0.001,
+class batchdata:
+    def __init__(
+        self,
+        batch_mission,
+        batch_environment,
+        batch_boat,
+        batch_fitness,
         name=None,
         timestep=1,
         num_substeps=10,
@@ -418,12 +242,95 @@ if __name__ == "__main__":
         cutoff_time_gates_same_line=10,
         cutoff_time_gates_different_line=30,
         cutoff_thresh=None,
-        num_best=5,
+        num_best=20,
         save_dir="../data/batchruns/",
+        do_visual=False,
+        visual_timestep=0.01,
+    ):
+        self.mission = batch_mission
+        self.environment = batch_environment
+        self.boat = batch_boat
+        self.fitness = batch_fitness
+
+        # movement variables
+        self.timestep = timestep
+        self.num_substeps = num_substeps
+
+        # cutoff variables for when to stop a simulation
+        self.cutoff_max_time = cutoff_max_time
+        self.cutoff_time_gates_same_line = cutoff_time_gates_same_line
+        self.cutoff_time_gates_different_line = cutoff_time_gates_different_line
+        if cutoff_thresh is None:
+            cutoff_thresh = [[0, -999]]
+        self.cutoff_thresh = cutoff_thresh
+        # visual
+        self.do_visual = do_visual
+        self.visual_timestep = visual_timestep
+        if self.do_visual is True:
+            self.visual = display.display()
+        else:
+            self.visual = None
+
+    def check_gate_time_gap(self, boat_time, my_fitness):
+        """ Check if gap between gates meets the thresholds """
+        if my_fitness.current_gate_num > 0:
+            gate_num = my_fitness.current_gate_num
+            is_same_line = (
+                my_fitness.all_gate[gate_num - 1]["line_num"]
+                == my_fitness.all_gate[gate_num]["line_num"]
+            )
+            t_between_gate = (
+                boat_time - my_fitness.all_gate_fitness[gate_num - 1]["time"]
+            )
+            if is_same_line:
+                # 1) between gates on the same line
+                if t_between_gate > self.cutoff_time_gates_same_line:
+                    return False
+            else:
+                # 2) between gates on different lines
+                if t_between_gate > self.cutoff_time_gates_different_line:
+                    return False
+
+        return True
+
+    def check_cutoff_thresh(self, boat_time, was_checked, fitness_fun):
+        """ Check if threshhold was met """
+        # only compute fitness if it needed to check
+        for i, (time_fitness, is_checked) in enumerate(
+            zip(self.cutoff_thresh, was_checked)
+        ):
+            if boat_time > time_fitness[0] and not is_checked:
+                was_checked[i] = True
+                if fitness_fun() < time_fitness[1]:
+                    return False
+
+        return True
+
+
+if __name__ == "__main__":
+    MISSION_NAME = "./data/missions/increasingangle.txt"
+    my_mission = mission.mission(survey_line_filename=MISSION_NAME, flip_x=False)
+    my_environment = environment.environment()  # default no currents
+    my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.8)
+    my_boat = boat.boat()
+    # make batchrun class
+    my_batch = batchdata(
+        my_mission,
+        my_environment,
+        my_boat,
+        my_fitness,
+        timestep=1,
+        num_substeps=10,
+        cutoff_max_time=1000,
+        cutoff_time_gates_same_line=10,
+        cutoff_time_gates_different_line=30,
+        cutoff_thresh=[[5, 0.1]],
     )
+    my_batchrun = batchrun(name="testing", num_best=10)
+
     # make autopilots
     all_autopilot_list = []
-    for seed in range(50):
+    for seed in range(2):
         all_autopilot_list.append(
             autopilot.ap_nn(
                 my_mission.survey_lines, num_neurons=[10, 10], rand_seed=seed
@@ -431,4 +338,4 @@ if __name__ == "__main__":
         )
 
     # test batch run
-    my_batch.run(all_autopilot_list, do_parallel=False)
+    my_batchrun.run(all_autopilot_list, my_batch, do_parallel=True)
