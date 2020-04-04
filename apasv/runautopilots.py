@@ -135,10 +135,11 @@ def check_cutoff_thresh(boat_time, was_checked, fitness_fun, cutoff_thresh):
     return True
 
 
-def chunks(lst, n):
+def chunks(lst, chunk_size):
     """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
+    for first_ind in range(0, len(lst), chunk_size):
+        last_ind = first_ind + chunk_size
+        yield lst[first_ind:last_ind]
 
 
 def run_autopilots_parallel(
@@ -331,3 +332,4 @@ if __name__ == "__main__":
     print_best_runs(best_list)
     print("")
     print(time.time() - t1)
+    # TODO save function to load and save best results

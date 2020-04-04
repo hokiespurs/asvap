@@ -51,7 +51,11 @@ class autopilot:
                 return
 
             downline_pos_backwards, _ = self.xy_to_downline_offline(
-                pos_xy, [line["p2_x"], line["p2_y"]], [line["p1_x"], line["p1_y"]]
+                pos_xy,
+                [line["p2_x"], line["p2_y"]],
+                [line["p1_x"], line["p1_y"]],
+                False,
+                np.pi + line["az"],
             )
             if downline_pos_backwards < 0:
                 self.line_finished = True
@@ -66,18 +70,26 @@ class autopilot:
         # if a line was just finished, check if it's on the new line yet
         if self.line_finished is True:
             downline_pos, _ = self.xy_to_downline_offline(
-                pos_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]]
+                pos_xy,
+                [line["p1_x"], line["p1_y"]],
+                [line["p2_x"], line["p2_y"]],
+                False,
+                line["az"],
             )
             if downline_pos > 0:
                 self.line_finished = False
 
-    def get_pos_vel_gate(self, pos_xy, vel_xy, line_num):
+    def get_pos_vel_gate(self, pos_xy, vel_xy, line_num, az):
         line = self.survey_lines[line_num]
         downline_pos, offline_pos = self.xy_to_downline_offline(
-            pos_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]]
+            pos_xy,
+            [line["p1_x"], line["p1_y"]],
+            [line["p2_x"], line["p2_y"]],
+            False,
+            az,
         )
         downline_vel, offline_vel = self.xy_to_downline_offline(
-            vel_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]], True
+            vel_xy, [line["p1_x"], line["p1_y"]], [line["p2_x"], line["p2_y"]], True, az
         )
 
         return (downline_pos, offline_pos, downline_vel, offline_vel)
@@ -100,9 +112,13 @@ class autopilot:
         return throttle
 
     @staticmethod
-    def xy_to_downline_offline(xy, p1, p2, do_vel=False):
+    def xy_to_downline_offline(xy, p1, p2, do_vel=False, az=None):
         """ Converts only one xy point to downline, offline """
-        az = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
+        if az is None:
+            az = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
+        else:
+            az = np.pi / 2 - az
+
         cos_val = np.cos(az)
         sin_val = np.sin(az)
         if do_vel:
@@ -155,6 +171,7 @@ class ap_nn(autopilot):
             rand_biases_scalar=rand_biases_scalar,
         )
         self.id = f"{rand_seed:10.0f}"
+        self.do_partials = False
 
     def calc_nn_inputs(self, new_data):
         """ calculate parameters for input to the neural network"""
@@ -164,18 +181,20 @@ class ap_nn(autopilot):
         # cos(azimuth_off_line)
         # sin(azimuth_off_line)
         # tanh(vel_offline)
+        line_az = self.survey_lines[self.current_line]["az"]
 
         (downline_pos, offline_pos, downline_vel, offline_vel) = self.get_pos_vel_gate(
             [new_data["x"], new_data["y"]],
             [new_data["vx"], new_data["vy"]],
             self.current_line,
+            line_az,
         )
-        dist_remaining = self.survey_lines[self.current_line]["distance"] - downline_pos
+        # dist_remaining = self.survey_lines[self.current_line]["distance"] - downline_pos
         # compute velocity error
         d_speed = downline_vel - self.survey_lines[self.current_line]["goal_speed"]
         # compute azimuth off line
         boat_az = new_data["az"] * np.pi / 180
-        line_az = self.survey_lines[self.current_line]["az"]
+
         daz = boat_az - line_az
         if daz > np.pi:
             daz -= 2 * np.pi
@@ -278,46 +297,48 @@ class ap_nn(autopilot):
         # R_throttle = total_fwd - 200 * (nn_out[1] - 0.5)
         # throttle = [L_throttle, R_throttle]
         if flipped_input:
-            return np.hstack((throttle[1], throttle[0]))
+            return np.flipud(throttle)
         else:
-            return np.hstack((throttle[0], throttle[1]))
+            return throttle
 
     def calc_boat_throttle(self, new_data):
         """ calculate the throttle command to the boat"""
         # new_data = [pos_x, pos_y, pos_az, vel_x, vel_y, vel_az]
         self.update_current_line([new_data["x"], new_data["y"]])
         nn_inputs, flipped_input = self.calc_nn_inputs(new_data)
-        # nn_outputs = self.nn.feed_forward(nn_inputs)
-        # compute partial derivatives
-        activation, dadz = self.nn.feed_forward_full(nn_inputs)
-        nn_outputs = activation[-1]
-        _, _, dCda1 = self.nn.back_propagate(
-            np.array([1, 0]).reshape(2, 1), activation, dadz
-        )
-        dCda1 = dCda1 / np.max(np.abs(dCda1))
-
-        _, _, dCda2 = self.nn.back_propagate(
-            np.array([0, 1]).reshape(2, 1), activation, dadz
-        )
-        dCda2 = dCda2 / np.max(np.abs(dCda2))
-
-        all_partials = []
-        for i in range(self.num_input):
-            all_partials.append([dCda1[i], dCda2[i]])
-        all_partials.append(None)
-        all_partials.append(None)
-        self.debug_autopilot_partials = all_partials
-
-        self.debug_autopilot_labels.append("NN Out Throttle L")
-        self.debug_autopilot_labels.append("NN Out Throttle R")
-
-        self.debug_autopilot_label_data = np.vstack(
-            (
-                self.debug_autopilot_label_data,
-                nn_outputs[0] * 2 - 1,
-                nn_outputs[1] * 2 - 1,
+        if not self.do_partials:
+            nn_outputs = self.nn.feed_forward(nn_inputs)
+        else:
+            # compute partial derivatives
+            activation, dadz = self.nn.feed_forward_full(nn_inputs)
+            nn_outputs = activation[-1]
+            _, _, dCda1 = self.nn.back_propagate(
+                np.array([1, 0]).reshape(2, 1), activation, dadz
             )
-        )
+            dCda1 = dCda1 / np.max(np.abs(dCda1))
+
+            _, _, dCda2 = self.nn.back_propagate(
+                np.array([0, 1]).reshape(2, 1), activation, dadz
+            )
+            dCda2 = dCda2 / np.max(np.abs(dCda2))
+
+            all_partials = []
+            for i in range(self.num_input):
+                all_partials.append([dCda1[i], dCda2[i]])
+            all_partials.append(None)
+            all_partials.append(None)
+            self.debug_autopilot_partials = all_partials
+
+            self.debug_autopilot_labels.append("NN Out Throttle L")
+            self.debug_autopilot_labels.append("NN Out Throttle R")
+
+            self.debug_autopilot_label_data = np.vstack(
+                (
+                    self.debug_autopilot_label_data,
+                    nn_outputs[0] * 2 - 1,
+                    nn_outputs[1] * 2 - 1,
+                )
+            )
 
         throttle = self.calc_nn_out_to_throttle(nn_outputs, flipped_input)
         return self.limit_throttle(throttle)

@@ -22,6 +22,7 @@ class boat:
         friction_function=None,
         friction_function_rotation=None,
         max_num_history=100000,
+        do_history_of_updates=False,
     ):
         # kinematics
         self.time = time
@@ -66,6 +67,7 @@ class boat:
 
         # history
         # x,y,az,vx,vy,vaz
+        self.max_num_history = max_num_history
         self.__history = np.zeros((max_num_history, 7))
         self.__history[0, :] = np.concatenate(
             ([self.time], self.pos_vec, self.vel_world_vec)
@@ -74,6 +76,7 @@ class boat:
         self.is_history_looped = False
 
         # x,y,az,vx,vy,vaz,ax,ay,aaz,throttleL,throttleR
+        self.do_history_of_updates = do_history_of_updates
         self.__history_of_updates = np.zeros((max_num_history, 9))
         self.__history_of_updates[0, :] = np.concatenate(
             ([self.time], self.pos_vec, self.vel_world_vec, self.throttle)
@@ -148,12 +151,17 @@ class boat:
 
     def _update_history(self):
         # t, x, y, az, vx, vy, vaz
-        self.__history[self.num_history_epochs, :] = np.concatenate(
-            ([self.time], self.pos_vec, self.vel_world_vec)
-        )
-        max_num_history = self.__history.shape[0]
+        self.__history[self.num_history_epochs, :] = [
+            self.time,
+            self.pos["x"],
+            self.pos["y"],
+            self.pos["az"],
+            self.vel_world["x"],
+            self.vel_world["y"],
+            self.vel_world["az"],
+        ]
         self.num_history_epochs += 1
-        if self.num_history_epochs == max_num_history:
+        if self.num_history_epochs == self.max_num_history:
             self.num_history_epochs = 0
             self.is_history_looped = True
 
@@ -162,9 +170,8 @@ class boat:
         self.__history_of_updates[self.num_updates, :] = np.concatenate(
             ([self.time], self.pos_vec, self.vel_world_vec, self.throttle)
         )
-        max_num_history = self.__history_of_updates.shape[0]
         self.num_updates += 1
-        if self.num_updates == max_num_history:
+        if self.num_updates == self.max_num_history:
             self.num_updates = 0
             self.is_history_of_updates_looped = True
 
@@ -209,7 +216,8 @@ class boat:
 
     def update_position(self, time_step, num_dt, vel_water_function=None):
         """ Update the position of the boat """
-        self._update_history_of_updates()
+        if self.do_history_of_updates:
+            self._update_history_of_updates()
         # if no water vel function
         if vel_water_function is None:
             vel_water_function = self.default_currents

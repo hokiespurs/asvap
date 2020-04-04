@@ -10,6 +10,8 @@ class simulator:
         self.fitness = fitness
         self.autopilot = autopilot
         self.keys_pressed = None
+        if visual is not None:
+            self.autopilot.do_partials = True
 
     def reset(self):
         self.boat.reset()
