@@ -173,6 +173,10 @@ class ap_nn(autopilot):
         self.id = f"{rand_seed:10.0f}"
         self.do_partials = False
 
+    def new_random_seed(self, seed):
+        self.nn.new_random_seed(seed)
+        self.id = f"{seed:.0f}"
+
     def calc_nn_inputs(self, new_data):
         """ calculate parameters for input to the neural network"""
         # INPUTS

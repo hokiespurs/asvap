@@ -60,9 +60,14 @@ class neuralnetwork:
         # make sure weights and biases are formatted correctly
         self.check_nn_structure()
 
+    def new_random_seed(self, seed):
+        self.rand_seed = seed
+        self.random_generator = np.random.default_rng(seed)
+        self.random_weights()
+        self.random_biases()
+
     def random_biases(self):
         """ Initialize random biases """
-        # use rand_seed+1 so values arent same as weights
         _, correct_bias_shapes = self.get_correct_nn_sizes()
 
         self.biases = []

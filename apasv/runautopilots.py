@@ -143,10 +143,10 @@ def chunks(lst, chunk_size):
 
 
 def run_autopilots_parallel(
-    class_params, simulation_params, autopilot_list, client, batch_size=1000
+    class_params, simulation_params, autopilot_list, client, num_per_worker=50
 ):
     # slice the autopilot_list into smaller lists
-    ap_chunks = list(chunks(autopilot_list, batch_size))
+    ap_chunks = list(chunks(autopilot_list, num_per_worker))
     run_function = partial(run_autopilots_series, class_params, simulation_params)
     # add each list to the client
     chunk_runs = client.map(run_function, ap_chunks)
@@ -243,22 +243,31 @@ def update_best_simulations(new_runs, old_bests):
     return new_bests
 
 
-def print_best_runs(best_runs):
+def print_best_runs(best_runs, filename=None):
     """ Print best_list to the screen """
-    # clear screen
-    system("cls")
-    # print header
     headerstr = (
         "       RANK | FITNESS | PER GATE |  OFF FIT |"
         + "  VEL FIT | % COMPLETE | BOAT TIME |"
         + "         SEED |        DATETIME | CPU TIME"
     )
-    print(headerstr)
+    if filename is None:
+        # clear screen
+        system("cls")
+        # print header
+        print(headerstr)
+        file_handle = None
+    else:
+        file_handle = open(filename, "w+")
+        file_handle.write(headerstr + "\n")
+
     for rank, sim_data in enumerate(best_runs):
-        print_individual_run(sim_data, docr=True, rank=rank)
+        print_individual_run(sim_data, docr=True, rank=rank, file_handle=file_handle)
+
+    if filename is not None:
+        file_handle.close()
 
 
-def print_individual_run(data, docr=True, rank=0):
+def print_individual_run(data, docr=True, rank=0, file_handle=None):
     """ Print results to screen """
     tstr = datetime.datetime.fromtimestamp(data["clock"]).strftime("%m/%d %I:%M %p")
     print_string = (
@@ -269,14 +278,23 @@ def print_individual_run(data, docr=True, rank=0):
         + f"{data['mean_velocity_fitness']:9.2f} |"
         + f"{data['percent_complete']:11.1f} |"
         + f"{data['boat_time']:10.1f} |"
-        + f"{data['id']:13s} |"
+        + f"{data['id']:>13s} |"
         + f"{tstr:>16s} |"
         + f"{data['run_time']:9.3f}"
     )
-    if docr:
-        print(print_string)
+    if file_handle is None:
+        if docr:
+            print(print_string)
+        else:
+            print(print_string, end="\r")
     else:
-        print(print_string, end="\r")
+        file_handle.write(print_string + "\n")
+
+
+def timer_str(start, end):
+    hours, rem = divmod(end - start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
 
 
 if __name__ == "__main__":
@@ -324,7 +342,7 @@ if __name__ == "__main__":
     # )
 
     new_runs = run_autopilots_parallel(
-        class_params, simulation_params, all_autopilot_list, client, batch_size=50
+        class_params, simulation_params, all_autopilot_list, client, num_per_worker=50
     )
 
     best_list = reset_best_simulations(10)
@@ -332,4 +350,4 @@ if __name__ == "__main__":
     print_best_runs(best_list)
     print("")
     print(time.time() - t1)
-    # TODO save function to load and save best results
+    # TODO Script to load from saved best_list, easier debugging
