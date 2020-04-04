@@ -2,13 +2,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
+from copy import copy
 
-# mass=5,
-# rotational_mass=0.5,
-# friction=[3, 10, 30, 50],
-# thrust_x_pos=[-0.3, 0.3],
-# color=[1, 1, 0],
-# friction_function=lambda friction, vel: friction * (vel ** 3 / 10 + vel),
+
 class boat:
     def __init__(
         self,
@@ -22,16 +18,19 @@ class boat:
         thrust_x_pos=[-0.2, 0.2],
         mass=5,
         rotational_mass=0.5,
-        thrust_function=lambda x: x / 20,
-        friction_function=lambda friction, vel: friction * (vel ** 3 / 10 + vel),
-        friction_function_rotation=lambda friction, vel: friction
-        * (vel ** 3 / 10 + vel),
+        thrust_function=None,
+        friction_function=None,
+        friction_function_rotation=None,
         max_num_history=100000,
     ):
         # kinematics
         self.time = time
         self.pos = {"x": pos[0], "y": pos[1], "az": pos[2]}
         self.vel_world = {"x": vel_world[0], "y": vel_world[1], "az": vel_world[2]}
+
+        self.original_pos = copy(self.pos)
+        self.original_vel = copy(self.vel_world)
+
         # physics
         self.friction = {
             "forwards": friction[0],
@@ -42,11 +41,20 @@ class boat:
         self.thrust_x_pos = thrust_x_pos
         self.mass = mass
         self.rotational_mass = rotational_mass
+
+        if thrust_function is None:
+            thrust_function = self.default_thrust_function
+        if friction_function is None:
+            friction_function = self.default_friction_function
+        if friction_function_rotation is None:
+            friction_function_rotation = self.default_friction_function_rotation
+
         self.thrust_function = thrust_function
         self.friction_function = friction_function
         self.friction_function_rotation = friction_function_rotation
         # control input
         self.throttle = throttle
+        self.original_throttle = copy(self.throttle)
         # appearance
         self.color = color
         if hullshape is None:
@@ -72,6 +80,41 @@ class boat:
         )
         self.num_updates = 0
         self.is_history_of_updates_looped = False
+
+    def reset(self):
+        self.time = 0
+        self.pos = copy(self.original_pos)
+        self.vel_world = copy(self.original_vel)
+        self.throttle = copy(self.original_throttle)
+
+        # history
+        # x,y,az,vx,vy,vaz
+        self.__history[:] = 0
+        self.__history[0, :] = np.concatenate(
+            ([self.time], self.pos_vec, self.vel_world_vec)
+        )
+        self.num_history_epochs = 1
+        self.is_history_looped = False
+
+        # x,y,az,vx,vy,vaz,ax,ay,aaz,throttleL,throttleR
+        self.__history_of_updates[:] = 0
+        self.__history_of_updates[0, :] = np.concatenate(
+            ([self.time], self.pos_vec, self.vel_world_vec, self.throttle)
+        )
+        self.num_updates = 0
+        self.is_history_of_updates_looped = False
+
+    @staticmethod
+    def default_thrust_function(x):
+        return x / 20
+
+    @staticmethod
+    def default_friction_function(friction, vel):
+        return friction * (vel ** 3 / 10 + vel)
+
+    @staticmethod
+    def default_friction_function_rotation(friction, vel):
+        return friction * (vel ** 3 / 10 + vel)
 
     @property
     def history(self):
@@ -160,9 +203,16 @@ class boat:
         local_y = xy[0] * sin + xy[1] * cos
         return [local_x, local_y]
 
-    def update_position(self, time_step, num_dt, vel_water_function=lambda xy: (0, 0)):
+    @staticmethod
+    def default_currents(xy):
+        return (0, 0)
+
+    def update_position(self, time_step, num_dt, vel_water_function=None):
         """ Update the position of the boat """
         self._update_history_of_updates()
+        # if no water vel function
+        if vel_water_function is None:
+            vel_water_function = self.default_currents
         # for the num_dt to move
         dt = time_step / num_dt
         for t_step in range(num_dt):

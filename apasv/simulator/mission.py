@@ -120,6 +120,17 @@ class fitness:
         self.last_boat_history_ind = 0
         self.mission_complete = False
 
+    def reset(self):
+        self.all_gate_fitness = self.create_gate_fitness()
+        self.current_survey_line = 0
+        self.current_gate_num = 0
+        self.current_fitness = 0
+        self.mean_offline_fitness = 0
+        self.mean_velocity_fitness = 0
+
+        self.last_boat_history_ind = 0
+        self.mission_complete = False
+
     def create_gate_fitness(self):
         """ Preallocates a list of dicts for each gate """
         # num points in gate
@@ -335,22 +346,23 @@ class fitness:
 
     def is_valid_run(self, history_of_updates):
         """ Computes if the run is valid (ie. not spinning, backwards) """
-        NUM_SPINS_PER_LINE = 3
-        TIME_BEFORE_EVAL = 10  # give it time seconds to get going
-        time = history_of_updates[:, 0]
-        vel_az = history_of_updates[:, 6]
-        left_throttle = history_of_updates[:, 7]
-        right_throttle = history_of_updates[:, 8]
-        if time[-1] > TIME_BEFORE_EVAL:
-            # backwards boat
-            if np.mean(left_throttle) < 0 and np.mean(right_throttle) < 0:
-                return False
-            # spinning boat
-            mean_vel_az = np.mean(vel_az)
-            total_num_spins = mean_vel_az * time[-1] / 360
-            spins_per_line = total_num_spins / (self.current_survey_line + 1)
-            if np.abs(spins_per_line) > NUM_SPINS_PER_LINE:  # more than 3 spins
-                return False
+        if history_of_updates.size > 9:
+            NUM_SPINS_PER_LINE = 3
+            TIME_BEFORE_EVAL = 10  # give it time seconds to get going
+            time = history_of_updates[:, 0]
+            vel_az = history_of_updates[:, 6]
+            left_throttle = history_of_updates[:, 7]
+            right_throttle = history_of_updates[:, 8]
+            if time[-1] > TIME_BEFORE_EVAL:
+                # backwards boat
+                if np.mean(left_throttle) < 0 and np.mean(right_throttle) < 0:
+                    return False
+                # spinning boat
+                mean_vel_az = np.mean(vel_az)
+                total_num_spins = mean_vel_az * time[-1] / 360
+                spins_per_line = total_num_spins / (self.current_survey_line + 1)
+                if np.abs(spins_per_line) > NUM_SPINS_PER_LINE:  # more than 3 spins
+                    return False
 
         return True
 
@@ -485,3 +497,6 @@ if __name__ == "__main__":
     main()
     t2 = process_time()
     print(t2 - t1)
+
+
+# %%

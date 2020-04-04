@@ -1,3 +1,4 @@
+# from numba import jit
 import numpy as np
 import sys
 from os import system
@@ -6,8 +7,11 @@ from simulator import boat, display, environment, mission, simulator
 from autopilot import autopilot
 import time
 import datetime
-from copy import deepcopy
+from copy import deepcopy, copy
 import concurrent.futures
+
+# import concurrent.futures
+from dask.distributed import Client
 
 sys.path.insert(0, "../autopilot")
 
@@ -18,9 +22,9 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 DEBUG = False
 DEBUG_DELAY = 0.015
 #
-NTEST = int(1e9)
-MAXSEED = int(1e9)
-PARALLEL_CHUNK_SIZE = 5000
+NTEST = int(100)
+MAXSEED = int(100)
+PARALLEL_CHUNK_SIZE = 1
 NUM_BEST = 10
 # random seed
 RAND_SEED = 11  # random seed to start building random boats
@@ -33,10 +37,6 @@ MAX_TIME_BETWEEN_SEQUENTIAL_GATE = 10
 MAX_TIME_BETWEEN_LINES = 30
 CUTOFFS = [
     [5, 0.1],  # time to gate 1
-    [50, 20],
-    [100, 20],
-    [200, 50],
-    [300, 75],
 ]  # [time,fitness]
 MISSION_NAME = "./data/missions/increasingangle.txt"
 # neural net
@@ -54,19 +54,19 @@ else:
     rng = np.random.default_rng(RAND_SEED)
     all_rand_seed = rng.choice(MAXSEED, NTEST, replace=False)
 
-all_rand_seed = [
-    511690,
-    70760,
-    269924,
-    151699,
-    307418,
-    165866,
-    224968,
-    232514,
-    100493,
-    10277,
-]
-DEBUG = True
+# all_rand_seed = [
+#     511690,
+#     70760,
+#     269924,
+#     151699,
+#     307418,
+#     165866,
+#     224968,
+#     232514,
+#     100493,
+#     10277,
+# ]
+# DEBUG = True
 # all_rand_seed[0] = 9461794
 
 # create mission and environment
@@ -97,7 +97,9 @@ def run_simulation(rand_seed):
     t_start = time.time()
     was_cutoff_checked = [False] * len(CUTOFFS)
     my_boat = deepcopy(my_boat_all)
-    my_fitness = deepcopy(my_fitness_all)
+    my_fitness_all.reset()
+    my_fitness = my_fitness_all
+    # my_fitness = deepcopy(my_fitness_all)
     my_autopilot = autopilot.ap_nn(
         my_mission.survey_lines,
         num_neurons=NUM_NODES,
@@ -262,12 +264,27 @@ if __name__ == "__main__":
     best_list, _ = update_best_list()  # preallocate
     if PARALLEL_CHUNK_SIZE > 1 and DEBUG is False:
         current_num = 0
+        # client = Client()
+        # all_sim_runs = client.map(self.run_simulation, autopilot_list)
+        # all_sim_results = client.gather(all_sim_runs)
+        # for sim_result in all_sim_results:
+        #     self.update_best_simulations(sim_result)
+        # self.print_best_runs()
+        client = Client()
+
         # wont process the last sub-chunk, but thats fine
         while current_num < len(all_rand_seed):
             current_inds = current_num + np.arange(PARALLEL_CHUNK_SIZE)
             last_ind = current_num + PARALLEL_CHUNK_SIZE
             chunk_seeds = all_rand_seed[current_num:last_ind]
             t_chunk_start = time.time()
+            # new parallel code
+            # all_sim_runs = client.map(run_simulation, chunk_seeds)
+            # all_sim_results = client.gather(all_sim_runs)
+            # for sim_result in all_sim_results:
+            #     best_list, _ = update_best_list(sim_result, best_list)
+            # self.print_best_runs()
+
             with concurrent.futures.ProcessPoolExecutor(max_workers=60) as executor:
                 chunk_results = executor.map(run_simulation, chunk_seeds)
                 for sim_results in chunk_results:
@@ -292,4 +309,5 @@ if __name__ == "__main__":
                     break
 
     runtime = time.time() - start_time
+    print("")
     print(f"Processed in: {runtime:.3f} s")

@@ -11,6 +11,10 @@ class simulator:
         self.autopilot = autopilot
         self.keys_pressed = None
 
+    def reset(self):
+        self.boat.reset()
+        self.fitness.reset()
+
     def get_fitness(self):
         """ Get the fitness of the boat on the mission """
         is_valid_run = self.fitness.is_valid_run(self.boat.history_of_updates)
