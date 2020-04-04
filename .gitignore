@@ -2,6 +2,7 @@
 ~$*
 dask-worker-space/
 profile.html 
+deleteme.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

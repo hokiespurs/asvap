@@ -209,7 +209,6 @@ def debug_autopilot(class_params, simulation_params, autopilot_list):
     return all_fitness
 
 
-
 def reset_best_simulations(num_best):
     val = {
         "id": "reset",
