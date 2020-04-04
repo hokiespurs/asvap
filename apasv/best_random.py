@@ -41,19 +41,19 @@ if __name__ == "__main__":
         )
 
     # process the autopilot list
-    # client = Client()
+    client = Client()
     t1 = time.time()
     # new_runs = runautopilots.run_autopilots_series(
     #     class_params, simulation_params, all_autopilot_list
     # )
 
-    new_runs = runautopilots.debug_autopilot(
-        class_params, simulation_params, all_autopilot_list
-    )
-
-    # new_runs = runautopilots.run_autopilots_parallel(
-    #     class_params, simulation_params, all_autopilot_list, client, batch_size=100
+    # new_runs = runautopilots.debug_autopilot(
+    #     class_params, simulation_params, all_autopilot_list
     # )
+
+    new_runs = runautopilots.run_autopilots_parallel(
+        class_params, simulation_params, all_autopilot_list, client, batch_size=50
+    )
 
     best_list = runautopilots.reset_best_simulations(10)
     best_list = runautopilots.update_best_simulations(new_runs, best_list)
