@@ -21,6 +21,7 @@ class autopilot:
         self.debug_autopilot_label_data = 0
         self.debug_autopilot_partials = None
         self.id = None
+        self.do_partials = False
 
     def make_fake_survey_line(self):
         """ Make a fake survey line for debugging """
@@ -134,8 +135,8 @@ class autopilot:
 class ap_nn(autopilot):
     def __init__(
         self,
-        survey_lines,
-        num_neurons,
+        survey_lines=None,
+        num_neurons=[10],
         output_softmax=False,
         activation_function_names=None,  # "sigmoid", "relu", "tanh"
         rand_seed=14,

@@ -6,17 +6,16 @@ import time
 import runautopilots
 
 # TODO add genetic algorithm code
-SERIES = False  # really just for benchmarking
-DEBUG = True
+SERIES = True  # really just for benchmarking
+DEBUG = False
 DEBUG_NUMS = [173662545, 371011323]
-CHUNK_SIZE = 5000
+CHUNK_SIZE = 100
 NUM_PER_WORKER = 50
-TOTAL_RUN = int(1e7)
+TOTAL_RUN = int(1e3)
 NUM_BEST = 10
 RAND_SEED = 3
 MAX_SEED = int(1e9)
-SAVENAME = "./data/batchruns/AP_30s30s30s_first_tests.txt"
-
+SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_first_tests"
 if __name__ == "__main__":
     MISSION_NAME = "./data/missions/increasingangle.txt"
     # autopilot parameters
@@ -103,10 +102,9 @@ if __name__ == "__main__":
                     num_per_worker=NUM_PER_WORKER,
                 )
 
-            # Print final best runs to screen
+            # Print  best runs to screen
             best_list = runautopilots.update_best_simulations(new_runs, best_list)
             runautopilots.print_best_runs(best_list)
-            runautopilots.print_best_runs(best_list, SAVENAME)
             print("")
             print(runtype)
             print(
@@ -119,6 +117,18 @@ if __name__ == "__main__":
                 f"{n_total:,.0f} in {runautopilots.timer_str(t_start,time.time())}"
                 + f"  ({(time.time()-t_start)/n_total*1000:.2f}ms/ per boat)"
             )
+            # make autopilots to save
+            top_ap = []
+            for run_num in best_list:
+                ap = autopilot.ap_nn(
+                    my_mission.survey_lines,
+                    rand_seed=int(run_num["id"]),
+                    **autopilot_params,
+                )
+                top_ap.append(ap)
+            runautopilots.save_autopilot_list(top_ap, SAVE_FOLDER)
+            runautopilots.print_best_runs(best_list, SAVE_FOLDER + "/top.txt")
+
     else:
         all_autopilot_list = []
         for seed in DEBUG_NUMS:
@@ -136,3 +146,4 @@ if __name__ == "__main__":
     print(f"Finished in: {runautopilots.timer_str(t_start,time.time())}")
 
     # http://localhost:8787/status
+    # TODO Save top autopilots as pickle

@@ -10,12 +10,13 @@ class simulator:
         self.fitness = fitness
         self.autopilot = autopilot
         self.keys_pressed = None
-        if visual is not None:
+        if visual is not None and autopilot is not None:
             self.autopilot.do_partials = True
 
     def reset(self):
         self.boat.reset()
         self.fitness.reset()
+        self.autopilot.survey_lines = self.fitness.mission.survey_lines
 
     def get_fitness(self):
         """ Get the fitness of the boat on the mission """

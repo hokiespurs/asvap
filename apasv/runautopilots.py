@@ -7,6 +7,9 @@ import datetime
 from dask.distributed import Client
 from functools import partial
 import itertools
+import pickle
+from pathlib import Path
+import glob
 
 # sys.path.insert(0, "../autopilot")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
@@ -181,19 +184,14 @@ def run_autopilots_series(class_params, simulation_params, autopilot_list):
     # For each autopilot
     all_fitness = []
     for ap in autopilot_list:
-        # reset simulation
-        my_simulator.reset()
         # set autopilot
         if class_params["autopilot_type"] == "apnn":
             my_ap.new_random_seed(ap)
-            # my_ap = autopilot.ap_nn(
-            #     my_mission.survey_lines,
-            #     rand_seed=ap,
-            #     **class_params["autopilot_params"],
-            # )
         else:
             my_ap = ap
         my_simulator.autopilot = my_ap
+        # reset simulation
+        my_simulator.reset()
         # run simulation
         ap_fitness = run_simulator(my_simulator, simulation_params)
         # append fitness list
@@ -246,15 +244,20 @@ def reset_best_simulations(num_best):
     return [val] * num_best
 
 
-def update_best_simulations(new_runs, old_bests):
+def update_best_simulations(new_runs, old_bests=None, num_bests=None):
     """ update the list of best simulations """
     # return whether the new run made the list
-    new_runs_sorted = sorted(new_runs, key=lambda i: i["fitness"])
-    num_bests = len(old_bests)
-    if len(new_runs_sorted) > num_bests:
-        all_runs = new_runs_sorted[-num_bests:] + old_bests
+    if old_bests is None:
+        all_runs = new_runs
+        if num_bests is None:
+            num_bests = 10
     else:
-        all_runs = new_runs_sorted + old_bests
+        new_runs_sorted = sorted(new_runs, key=lambda i: i["fitness"])
+        num_bests = len(old_bests)
+        if len(new_runs_sorted) > num_bests:
+            all_runs = new_runs_sorted[-num_bests:] + old_bests
+        else:
+            all_runs = new_runs_sorted + old_bests
 
     new_bests = sorted(all_runs, key=lambda i: i["fitness"])
     new_bests.reverse()
@@ -323,6 +326,31 @@ def change_autopilot_seeds(autopilot_list, rand_seeds):
         ap.new_random_seed(seed)
 
     return autopilot_list
+
+
+def save_autopilot(ap, filename):
+    with open(filename, "wb") as output:
+        pickle.dump(ap, output, pickle.HIGHEST_PROTOCOL)
+
+
+def load_autopilot(filename):
+    with open(filename, "rb") as input:
+        ap = pickle.load(input)
+    return ap
+
+
+def save_autopilot_list(ap_list, save_dir):
+    # make save directory
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+    # save each autopilot
+    for i, ap in enumerate(ap_list):
+        filename = f"/ap{i:02.0f}.pkl"
+        save_autopilot(ap, save_dir + filename)
+
+
+def load_autopilot_list(folder_name):
+    fnames = glob.glob(folder_name + "/*.pkl")
+    return [load_autopilot(f) for f in fnames]
 
 
 if __name__ == "__main__":

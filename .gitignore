@@ -3,7 +3,7 @@
 dask-worker-space/
 profile.html 
 deleteme.py
-
+batchruns/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
