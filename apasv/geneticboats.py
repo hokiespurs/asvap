@@ -5,7 +5,7 @@ from simulator import mission
 import numpy as np
 import runautopilots
 from copy import deepcopy
-
+import time
 import string
 import random
 
@@ -92,7 +92,10 @@ if __name__ == "__main__":
     # Start parallel processing
     client = Client()
 
+    total_runs = 0
+    t_start_all = time.time()
     for run_num in range(MAX_ITERATIONS):
+        t_start = time.time()
         # make new list of autopilots to test
         all_autopilot_list = top_ap
         for ap in top_ap:
@@ -130,6 +133,13 @@ if __name__ == "__main__":
         )
         runautopilots.print_best_runs(best_list)
         print(f"iteration:{run_num+1}")
+        total_runs += len(sorted_runs)
+        t_per_boat = (time.time() - t_start) / len(sorted_runs)
+        tstr = runautopilots.timer_str(t_start, time.time())
+        print(f"{len(sorted_runs):,.0f} in {tstr} [{t_per_boat:.3f}]")
+        t_per_boat = (time.time() - t_start_all) / total_runs
+        tstr = runautopilots.timer_str(t_start_all, time.time())
+        print(f"{total_runs:,.0f} in {tstr} [{t_per_boat:.3f}]")
         # save the top N
         runautopilots.save_autopilot_list(top_ap, SAVE_FOLDER)
         runautopilots.print_best_runs(best_list, SAVE_FOLDER + "/top.txt")
