@@ -7,11 +7,11 @@ import runautopilots
 
 # TODO add genetic algorithm code
 SERIES = False  # really just for benchmarking
-DEBUG = False
-DEBUG_NUMS = 4653
-CHUNK_SIZE = 500
+DEBUG = True
+DEBUG_NUMS = [173662545, 371011323]
+CHUNK_SIZE = 5000
 NUM_PER_WORKER = 50
-TOTAL_RUN = int(1000)
+TOTAL_RUN = int(1e7)
 NUM_BEST = 10
 RAND_SEED = 3
 MAX_SEED = int(1e9)
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
         "autopilot_params": autopilot_params,
-        "autopilot_type": "notapnn",
+        "autopilot_type": "apnn",
     }
     # simulation parameters
     simulation_params = {
@@ -64,20 +64,20 @@ if __name__ == "__main__":
     else:
         runtype = "Series"
 
-    def make_autopilots(num):
-        ap_list = []
-        for _ in range(num):
-            ap_list.append(autopilot.ap_nn(my_mission.survey_lines, **autopilot_params))
-        return ap_list
+    # needed for each autpilot
+    my_mission = mission.mission(**class_params["mission_params"])
 
-    # If not debugging
+    t_start = time.time()
     if not DEBUG:
-        t_start = time.time()
+
         # initialize autopilot list
-        my_mission = mission.mission(**class_params["mission_params"])
         ap_template = autopilot.ap_nn(my_mission.survey_lines, **autopilot_params)
 
-        all_autopilot_list = make_autopilots(CHUNK_SIZE)
+        all_autopilot_list = []
+        for _ in range(CHUNK_SIZE):
+            all_autopilot_list.append(
+                autopilot.ap_nn(my_mission.survey_lines, **autopilot_params)
+            )
 
         num_processed = 0
         num_batches = len(my_seed_generator)
@@ -85,11 +85,10 @@ if __name__ == "__main__":
             # process the autopilot list
             t_batch_start = time.time()
 
-            all_autopilot_list = runautopilots.change_autopilot_seeds(
-                all_autopilot_list, batch_seeds
-            )
-            # all_autopilot_list = batch_seeds
-            # class_params["autopilot_type"] = "apnn"
+            # all_autopilot_list = runautopilots.change_autopilot_seeds(
+            #     all_autopilot_list, batch_seeds
+            # )
+            all_autopilot_list = batch_seeds
             if SERIES:  # RUN IN SERIES
                 new_runs = runautopilots.run_autopilots_series(
                     class_params, simulation_params, all_autopilot_list
@@ -122,7 +121,8 @@ if __name__ == "__main__":
             )
     else:
         all_autopilot_list = []
-        for seed in range(DEBUG_NUMS):
+        for seed in DEBUG_NUMS:
+
             all_autopilot_list.append(
                 autopilot.ap_nn(
                     my_mission.survey_lines, rand_seed=seed, **autopilot_params
@@ -132,13 +132,7 @@ if __name__ == "__main__":
             class_params, simulation_params, all_autopilot_list
         )
 
-    # Print final best runs to screen
-    # runautopilots.print_best_runs(best_list)
-
-    # print("")
-    # print(
-    #     f"{TOTAL_RUN:,.0f} in {runautopilots.timer_str(t_start,time.time())}"
-    #     + f"  ({(time.time()-t_start)/TOTAL_RUN*1000:.2f}ms/ per boat)"
-    # )
+    # Print elapsed time
+    print(f"Finished in: {runautopilots.timer_str(t_start,time.time())}")
 
     # http://localhost:8787/status
