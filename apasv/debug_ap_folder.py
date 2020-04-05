@@ -35,6 +35,9 @@ simulation_params = {
     "cutoff_time_gates_different_line": 30,
     "cutoff_thresh": [[5, 0.1]],
 }
+# turn partials on
+for ap in autopilot_list:
+    ap.do_partials = True
 # debug simulations
 new_runs = runautopilots.debug_autopilot(
     class_params, simulation_params, autopilot_list
