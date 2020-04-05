@@ -5,21 +5,28 @@ import numpy as np
 import time
 import runautopilots
 
-
 # TODO add genetic algorithm code
 SERIES = False  # really just for benchmarking
 DEBUG = False
 DEBUG_NUMS = 4653
 CHUNK_SIZE = 500
 NUM_PER_WORKER = 50
-TOTAL_RUN = int(1e4)
+TOTAL_RUN = int(1000)
 NUM_BEST = 10
-RAND_SEED = 1
+RAND_SEED = 3
 MAX_SEED = int(1e9)
 SAVENAME = "./data/batchruns/AP_30s30s30s_first_tests.txt"
 
 if __name__ == "__main__":
     MISSION_NAME = "./data/missions/increasingangle.txt"
+    # autopilot parameters
+    autopilot_params = {
+        "num_neurons": [30, 30, 30],
+        "rand_weights_method": "randn",  # "rand","randn","randpm"
+        "rand_weights_scalar": 1,
+        "rand_biases_method": "randn",  # "rand","randn","randpm","zero"
+        "rand_biases_scalar": 1,
+    }
     # class parameters for simulation
     class_params = {
         "boat_params": {},
@@ -27,6 +34,8 @@ if __name__ == "__main__":
         "environment_params": {},
         "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
+        "autopilot_params": autopilot_params,
+        "autopilot_type": "notapnn",
     }
     # simulation parameters
     simulation_params = {
@@ -39,21 +48,13 @@ if __name__ == "__main__":
         "cutoff_time_gates_different_line": 30,
         "cutoff_thresh": [[5, 0.1]],
     }
-    # autopilot parameters
-    autopilot_params = {
-        "num_neurons": [30, 30, 30],
-        "rand_weights_method": "randn",  # "rand","randn","randpm"
-        "rand_weights_scalar": 1,
-        "rand_biases_method": "randn",  # "rand","randn","randpm","zero"
-        "rand_biases_scalar": 1,
-    }
 
     # initialize the random seed generator
     random_generator = np.random.default_rng(RAND_SEED)
     all_seeds = random_generator.choice(MAX_SEED, TOTAL_RUN, replace=False)
     my_seed_generator = list(runautopilots.chunks(all_seeds, CHUNK_SIZE))
     # initialize best list
-    best_list = runautopilots.reset_best_simulations(5)
+    best_list = runautopilots.reset_best_simulations(NUM_BEST)
     # if parallel, initialize client
     if not SERIES:
         client = Client()
@@ -63,33 +64,38 @@ if __name__ == "__main__":
     else:
         runtype = "Series"
 
+    def make_autopilots(num):
+        ap_list = []
+        for _ in range(num):
+            ap_list.append(autopilot.ap_nn(my_mission.survey_lines, **autopilot_params))
+        return ap_list
+
     # If not debugging
     if not DEBUG:
         t_start = time.time()
         # initialize autopilot list
         my_mission = mission.mission(**class_params["mission_params"])
-        all_autopilot_list = []
-        for seed in range(CHUNK_SIZE):
-            all_autopilot_list.append(
-                autopilot.ap_nn(
-                    my_mission.survey_lines, rand_seed=seed, **autopilot_params
-                )
-            )
+        ap_template = autopilot.ap_nn(my_mission.survey_lines, **autopilot_params)
+
+        all_autopilot_list = make_autopilots(CHUNK_SIZE)
+
         num_processed = 0
         num_batches = len(my_seed_generator)
         for i, batch_seeds in enumerate(my_seed_generator):
             # process the autopilot list
             t_batch_start = time.time()
 
-            # update autopilots with new random seeds
-            for ap, seed in zip(all_autopilot_list, batch_seeds):
-                ap.new_random_seed(seed)
-
+            all_autopilot_list = runautopilots.change_autopilot_seeds(
+                all_autopilot_list, batch_seeds
+            )
+            # all_autopilot_list = batch_seeds
+            # class_params["autopilot_type"] = "apnn"
             if SERIES:  # RUN IN SERIES
                 new_runs = runautopilots.run_autopilots_series(
                     class_params, simulation_params, all_autopilot_list
                 )
             else:  # PARALLEL
+                # new runs
                 new_runs = runautopilots.run_autopilots_parallel(
                     class_params,
                     simulation_params,
@@ -97,6 +103,7 @@ if __name__ == "__main__":
                     client,
                     num_per_worker=NUM_PER_WORKER,
                 )
+
             # Print final best runs to screen
             best_list = runautopilots.update_best_simulations(new_runs, best_list)
             runautopilots.print_best_runs(best_list)
@@ -108,7 +115,11 @@ if __name__ == "__main__":
                 + f": {runautopilots.timer_str(t_batch_start,time.time())}"
                 + f"  ({(time.time()-t_batch_start)/CHUNK_SIZE*1000:.2f}ms/ per boat)"
             )
-
+            n_total = (i + 1) / num_batches * TOTAL_RUN
+            print(
+                f"{n_total:,.0f} in {runautopilots.timer_str(t_start,time.time())}"
+                + f"  ({(time.time()-t_start)/n_total*1000:.2f}ms/ per boat)"
+            )
     else:
         all_autopilot_list = []
         for seed in range(DEBUG_NUMS):
@@ -122,13 +133,12 @@ if __name__ == "__main__":
         )
 
     # Print final best runs to screen
-    best_list = runautopilots.update_best_simulations(new_runs, best_list)
-    runautopilots.print_best_runs(best_list)
+    # runautopilots.print_best_runs(best_list)
 
-    print("")
-    print(
-        f"{TOTAL_RUN:,.0f} in {runautopilots.timer_str(t_start,time.time())}"
-        + f"  ({(time.time()-t_start)/TOTAL_RUN*1000:.2f}ms/ per boat)"
-    )
+    # print("")
+    # print(
+    #     f"{TOTAL_RUN:,.0f} in {runautopilots.timer_str(t_start,time.time())}"
+    #     + f"  ({(time.time()-t_start)/TOTAL_RUN*1000:.2f}ms/ per boat)"
+    # )
 
     # http://localhost:8787/status

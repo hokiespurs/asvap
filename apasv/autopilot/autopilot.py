@@ -174,6 +174,14 @@ class ap_nn(autopilot):
         self.do_partials = False
 
     def new_random_seed(self, seed):
+        self.old_data = {
+            "downline_pos": 0,
+            "offline_pos": 0,
+            "downline_vel": 0,
+            "offline_vel": 0,
+            "az": 0,
+            "vaz": 0,
+        }
         self.nn.new_random_seed(seed)
         self.id = f"{seed:.0f}"
 

@@ -16,7 +16,13 @@ def run_simulator(my_simulator, simulation_params):
     t_start_simulation = time.time()
     was_cutoff_checked = [False] * len(simulation_params["cutoff_thresh"])
     loop_criteria = True
+    # print("--------")
+    # print(my_simulator.autopilot.id)
+    # print(my_simulator.autopilot.nn.biases[0][0])
+    # print(my_simulator.autopilot.nn.weights[0][0][3])
+
     while loop_criteria:
+        # print(my_simulator.boat.pos["y"])
         # get autopilot info and move the boat
         boat_data = my_simulator.get_boat_data()
         new_throttle = my_simulator.autopilot.calc_boat_throttle(boat_data)
@@ -167,13 +173,27 @@ def run_autopilots_series(class_params, simulation_params, autopilot_list):
         fitness=mission.fitness(my_mission, **class_params["fitness_params"]),
         autopilot=autopilot_list[0],
     )
+    # if passing in random seeds
+    if class_params["autopilot_type"] == "apnn":
+        my_ap = autopilot.ap_nn(
+            my_mission.survey_lines, **class_params["autopilot_params"],
+        )
     # For each autopilot
     all_fitness = []
     for ap in autopilot_list:
         # reset simulation
         my_simulator.reset()
         # set autopilot
-        my_simulator.autopilot = ap
+        if class_params["autopilot_type"] == "apnn":
+            my_ap.new_random_seed(ap)
+            # my_ap = autopilot.ap_nn(
+            #     my_mission.survey_lines,
+            #     rand_seed=ap,
+            #     **class_params["autopilot_params"],
+            # )
+        else:
+            my_ap = ap
+        my_simulator.autopilot = my_ap
         # run simulation
         ap_fitness = run_simulator(my_simulator, simulation_params)
         # append fitness list
@@ -295,6 +315,14 @@ def timer_str(start, end):
     hours, rem = divmod(end - start, 3600)
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
+
+
+def change_autopilot_seeds(autopilot_list, rand_seeds):
+    """ change the random seed for a list of autopilots"""
+    for ap, seed in zip(autopilot_list, rand_seeds):
+        ap.new_random_seed(seed)
+
+    return autopilot_list
 
 
 if __name__ == "__main__":
