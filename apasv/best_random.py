@@ -5,7 +5,6 @@ import numpy as np
 import time
 import runautopilots
 
-# TODO add genetic algorithm code
 SERIES = True  # really just for benchmarking
 DEBUG = False
 DEBUG_NUMS = [173662545, 371011323]
@@ -16,6 +15,7 @@ NUM_BEST = 10
 RAND_SEED = 3
 MAX_SEED = int(1e9)
 SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_first_tests"
+
 if __name__ == "__main__":
     MISSION_NAME = "./data/missions/increasingangle.txt"
     # autopilot parameters
@@ -146,4 +146,3 @@ if __name__ == "__main__":
     print(f"Finished in: {runautopilots.timer_str(t_start,time.time())}")
 
     # http://localhost:8787/status
-    # TODO Save top autopilots as pickle

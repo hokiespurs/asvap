@@ -406,4 +406,3 @@ if __name__ == "__main__":
     print_best_runs(best_list)
     print("")
     print(time.time() - t1)
-    # TODO Script to load from saved best_list, easier debugging

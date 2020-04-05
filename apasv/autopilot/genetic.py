@@ -1,6 +1,10 @@
 import numpy as np
 from copy import copy
 
+# TODO other mutation types
+# TODO other missions with current
+# TODO different autopilots
+
 
 def random_mutation(vec, probability, distribution, scalar, random_generator):
     """ replace random cells """

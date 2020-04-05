@@ -145,3 +145,4 @@ if __name__ == "__main__":
         runautopilots.print_best_runs(best_list, SAVE_FOLDER + "/top.txt")
 
     # http://localhost:8787/status
+    # TODO profile for speed, why so much slower than random boats
