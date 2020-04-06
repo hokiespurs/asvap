@@ -52,7 +52,7 @@ if __name__ == "__main__":
         "boat_params": {},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
         "environment_params": {},
-        "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
+        "fitness_params": {"gate_length": 1, "offline_importance": 0.5},
         "display_params": {},
         "autopilot_params": autopilot_params,
         "autopilot_type": "apnn",

@@ -5,8 +5,8 @@ from simulator import boat, display, environment, mission, simulator
 from autopilot import autopilot
 
 # CONSTANTS
-THROTTLE_STEP = 50
-BOAT_TIMESTEP = 0.1
+THROTTLE_STEP = 5
+BOAT_TIMESTEP = 1
 VISUAL_DELAY = 0.05
 
 key_list = {
@@ -91,7 +91,7 @@ my_boat = boat.boat(
 x = np.array([-5, -5, -3.5, -2, -2, 2, 2, 3.5, 5, 5, 2, 2, -2, -2, -5]) / 10 * 0.7
 y = np.array([-5, 4, 5, 4, 0, 0, 4, 5, 4, -5, -5, 0, 0, -5, -5]) / 10
 my_boat.hullshape = np.array([x, y])
-mission_name = "./data/missions/increasingangle.txt"
+mission_name = "./data/missions/straightout.txt"
 my_mission = mission.mission(survey_line_filename=mission_name, flip_x=False)
 my_fitness = mission.fitness(my_mission, gate_length=1, offline_importance=0.5)
 my_autopilot = autopilot.ap_nn(my_mission.survey_lines, num_neurons=[10],)
@@ -104,8 +104,8 @@ def currents(xy):
         return [0, 0]
 
 
-my_environment = environment.environment()
-my_environment.get_currents = currents
+my_environment = environment.environment(currents_data="test")
+# my_environment.get_currents = currents
 my_simulator = simulator.simulator(
     boat=my_boat,
     environment=my_environment,

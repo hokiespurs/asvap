@@ -214,21 +214,19 @@ class ap_nn(autopilot):
         elif daz < -np.pi:
             daz += 2 * np.pi
 
+        # compute velocity azimuth off line
+        boat_velocity_az_offline = np.arctan2(offline_vel, downline_vel)
+
+        if boat_velocity_az_offline > np.pi:
+            boat_velocity_az_offline -= 2 * np.pi
+        elif boat_velocity_az_offline < -np.pi:
+            boat_velocity_az_offline += 2 * np.pi
+
+        # compute accelerations
         downline_acc = downline_vel - self.old_data["downline_vel"]
         offline_acc = offline_vel - self.old_data["offline_vel"]
         az_vel = new_data["vaz"]
         az_acc = new_data["vaz"] - self.old_data["vaz"]
-
-        # np.tanh(-x_l / 5),
-        # -vx_l / 3,
-        # np.tanh(-ax_l),
-        # np.cos(np.deg2rad(daz)),
-        # -np.sin(np.deg2rad(daz)),
-        # -vaz / 90,
-        # np.tanh(-aaz / 10),
-        # (vy_l - 1) / 3,
-        # np.tanh(ay_l),
-        # 1,
 
         datavals = np.array(
             [
@@ -241,6 +239,8 @@ class ap_nn(autopilot):
                 tanh(az_acc / 10),
                 tanh(d_speed / 3),
                 tanh(downline_acc),
+                np.cos(boat_velocity_az_offline),
+                np.sin(boat_velocity_az_offline),
             ]
         ).reshape(-1, 1)
         labels = [
@@ -253,6 +253,8 @@ class ap_nn(autopilot):
             "tanh(az_acc/10)",
             "tanh(vel_error/3)",
             "tanh(downline_acc)",
+            "cos(vel_az_err)",
+            "sin(vel_az_err)",
         ]
         flipped_input = False
         # Flip Inputs so always thinks its on positive side of line
@@ -269,6 +271,8 @@ class ap_nn(autopilot):
                     tanh(-az_acc / 10),
                     tanh(d_speed / 3),
                     tanh(downline_acc),
+                    np.cos(-boat_velocity_az_offline),
+                    np.sin(boat_velocity_az_offline),
                 ]
             ).reshape(-1, 1)
             labels = [
@@ -281,6 +285,8 @@ class ap_nn(autopilot):
                 "tanh(az_acc/10)",
                 "tanh(vel_error/3)",
                 "tanh(downline_acc)",
+                "cos(vel_az_err)",
+                "sin(vel_az_err)",
             ]
             flipped_input = True
 

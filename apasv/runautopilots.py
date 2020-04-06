@@ -10,7 +10,6 @@ import itertools
 import pickle
 from pathlib import Path
 import glob
-from copy import deepcopy
 
 # sys.path.insert(0, "../autopilot")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"

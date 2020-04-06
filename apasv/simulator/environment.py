@@ -77,6 +77,9 @@ def currents_test(xy):
     elif xy[1] < 80:
         return (-0.2, 0.2)
     elif xy[1] < 100:
-        return (0.25, -0.25)
-
-    return (0, 0)
+        return (-0.25, -0.3)
+    elif xy[0] < 20:
+        return (0, 0.2)
+    elif xy[0] < 60:
+        return (0.1, 0)
+    return (0, 0.2)
