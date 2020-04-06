@@ -102,7 +102,6 @@ if __name__ == "__main__":
         new_ap.id = ap_names[i]
         top_ap.append(new_ap)
 
-    og_top_ap = deepcopy(top_ap)
     # initiailze best list
     best_list = runautopilots.reset_best_simulations(NUM_TOP_KEEP)
 
@@ -114,7 +113,7 @@ if __name__ == "__main__":
     for run_num in range(MAX_ITERATIONS):
         t_start = time.time()
         # make new list of autopilots to test
-        all_autopilot_list = top_ap + og_top_ap
+        all_autopilot_list = top_ap
         for ap in top_ap:
             # mutate each of the top autopilots
             ap_list = mutate_autopilots(
