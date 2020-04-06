@@ -10,6 +10,7 @@ import itertools
 import pickle
 from pathlib import Path
 import glob
+from copy import deepcopy
 
 # sys.path.insert(0, "../autopilot")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
@@ -187,6 +188,12 @@ def run_autopilots_series(class_params, simulation_params, autopilot_list):
         # set autopilot
         if class_params["autopilot_type"] == "apnn":
             my_ap.new_random_seed(ap)
+            # x = deepcopy(my_ap)
+            # my_ap = autopilot.ap_nn(
+            #     my_mission.survey_lines,
+            #     rand_seed=ap,
+            #     **class_params["autopilot_params"],
+            # )
         else:
             my_ap = ap
         my_simulator.autopilot = my_ap
@@ -215,10 +222,10 @@ def debug_autopilot(class_params, simulation_params, autopilot_list):
     # For each autopilot
     all_fitness = []
     for ap in autopilot_list:
-        # reset simulation
-        my_simulator.reset()
         # set autopilot
         my_simulator.autopilot = ap
+        # reset simulation
+        my_simulator.reset()
         # run simulation
         ap_fitness = run_simulator(my_simulator, simulation_params)
         # append fitness list

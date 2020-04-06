@@ -5,19 +5,40 @@ import numpy as np
 import time
 import runautopilots
 
-SERIES = True  # really just for benchmarking
+SERIES = False  # really just for benchmarking
 DEBUG = False
-DEBUG_NUMS = [173662545, 371011323]
-CHUNK_SIZE = 100
+DEBUG_NUMS = [
+    173662545,
+    116250604,
+    29486111,
+    897267147,
+    715713926,
+    907379192,
+    442754188,
+    58084283,
+    536713798,
+    47405023,
+    371011323,
+    592871662,
+    27607438,
+    78367941,
+    968154253,
+    519373107,
+    343699182,
+    32231581,
+    95839546,
+    302718015,
+]
+CHUNK_SIZE = 5000
 NUM_PER_WORKER = 50
-TOTAL_RUN = int(1e3)
+TOTAL_RUN = int(1e7)
 NUM_BEST = 10
-RAND_SEED = 3
+RAND_SEED = 14
 MAX_SEED = int(1e9)
-SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_first_tests"
+SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_second_tests"
 
 if __name__ == "__main__":
-    MISSION_NAME = "./data/missions/increasingangle.txt"
+    MISSION_NAME = "./data/missions/straightout.txt"
     # autopilot parameters
     autopilot_params = {
         "num_neurons": [30, 30, 30],
@@ -52,6 +73,9 @@ if __name__ == "__main__":
     random_generator = np.random.default_rng(RAND_SEED)
     all_seeds = random_generator.choice(MAX_SEED, TOTAL_RUN, replace=False)
     my_seed_generator = list(runautopilots.chunks(all_seeds, CHUNK_SIZE))
+    ndebug = len(DEBUG_NUMS)
+    my_seed_generator[0][0:ndebug] = DEBUG_NUMS
+
     # initialize best list
     best_list = runautopilots.reset_best_simulations(NUM_BEST)
     # if parallel, initialize client

@@ -17,6 +17,8 @@ class simulator:
         self.boat.reset()
         self.fitness.reset()
         self.autopilot.survey_lines = self.fitness.mission.survey_lines
+        self.autopilot.mission_complete = False
+        self.autopilot.current_line = 0
 
     def get_fitness(self):
         """ Get the fitness of the boat on the mission """
@@ -72,10 +74,24 @@ class simulator:
         self.draw_mission()
         self.draw_boat_path()
         self.draw_boat()
+        self.draw_currents()
         # self.visual.draw_boat_throttle(self.boat.throttle)
         self.draw_stats()
         self.keys_pressed = self.visual.update()
         pygame.time.delay(int(pause_time * 1000))
+
+    def draw_currents(self):
+        current_x, current_y = self.environment.get_currents(
+            (self.boat.pos["x"], self.boat.pos["y"])
+        )
+        boat_x = self.boat.pos["x"]
+        boat_y = self.boat.pos["y"]
+
+        line_to_draw = np.array(
+            [[boat_x, boat_y], [boat_x + current_x * 10, boat_y + current_y * 10]]
+        )
+
+        self.visual.draw_current(line_to_draw)
 
     def draw_stats(self):
         label_string = []
@@ -89,6 +105,7 @@ class simulator:
         BOAT_COLOR = [[255, 0, 0], [0, 255, 0]]
         AUTO_COLOR = [[155, 0, 50], [50, 200, 0]]
         PARTIAL_COLOR = [[200, 180, 150], [200, 200, 240]]
+        CURRENT_COLORS = [[236, 102, 102], [137, 169, 238]]
         # Throttle Left
         label_string.append("Throttle L")
         data_string.append(f"{self.boat.throttle[0]:+4.0f}")
@@ -183,6 +200,27 @@ class simulator:
         data_center.append(None)
         data_color_range.append(None)
         data_colors.append(None)
+
+        # CURRENT X
+        current_x, current_y = self.environment.get_currents(
+            (self.boat.pos["x"], self.boat.pos["y"])
+        )
+        label_string.append("Current X")
+        data_string.append(f"{current_x:+.2f}")
+        data_val.append(current_x)
+        data_val_range.append([-0.5, 0.5])
+        data_center.append(0.5)
+        data_color_range.append([[0, 0.5], [0.5, 1]])
+        data_colors.append(CURRENT_COLORS)
+
+        # CURRENT Y
+        label_string.append("Current Y")
+        data_string.append(f"{current_y:+.2f}")
+        data_val.append(current_y)
+        data_val_range.append([-0.5, 0.5])
+        data_center.append(0.5)
+        data_color_range.append([[0, 0.5], [0.5, 1]])
+        data_colors.append(CURRENT_COLORS)
 
         # draw all labels
         X_POS = 0

@@ -5,7 +5,7 @@ SAVE_FOLDER = "./data/batchruns/genetic_test"
 
 autopilot_list = runautopilots.load_autopilot_list(SAVE_FOLDER)
 
-MISSION_NAME = "./data/missions/increasingangle.txt"
+MISSION_NAME = "./data/missions/straightout.txt"
 # autopilot parameters
 autopilot_params = {
     "num_neurons": [30, 30, 30],
@@ -18,7 +18,7 @@ autopilot_params = {
 class_params = {
     "boat_params": {},
     "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-    "environment_params": {},
+    "environment_params": {"currents_data": "test"},
     "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
     "display_params": {},
     "autopilot_params": autopilot_params,

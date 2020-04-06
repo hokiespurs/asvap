@@ -136,6 +136,20 @@ class display:
             self.win, color, False, line_points_game, self.mission_line_width,
         )
 
+    def draw_current(self, line_points):
+        line_points_game = self.world_to_game(line_points)
+        color = (0, 0, 255)
+        # pygame.draw.line(
+        #     self.win,
+        #     (0, 0, 255),
+        #     [sub_window_width / 2, 0],
+        #     [sub_window_width / 2, sub_window_height],
+        #     3,
+        # )
+        pygame.draw.lines(
+            self.win, color, False, line_points_game, 5,
+        )
+
     def draw_boat_path(self, boat_path):
         max_num = self.boat_history_max_num
         if boat_path.shape[0] > max_num:

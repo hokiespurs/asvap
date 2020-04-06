@@ -10,8 +10,8 @@ import string
 import random
 
 START_SEED = [173662545, 371011323]
-NUM_TOP_KEEP = 10
-NUM_MUTATE_PER_TOP = 100
+NUM_TOP_KEEP = 5
+NUM_MUTATE_PER_TOP = 10
 MUTATE_PROBABILITY = 0.01
 MUTATE_DISTRIBUTION = "randn"
 MUTATE_SCALAR = 1
@@ -20,7 +20,7 @@ NUM_PER_WORKER = 50
 RAND_SEED = 1
 SAVE_FOLDER = "./data/batchruns/genetic_test"
 
-MAX_ITERATIONS = 1000
+MAX_ITERATIONS = 5
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     class_params = {
         "boat_params": {},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-        "environment_params": {},
+        "environment_params": {"currents_data": [0.15, 0.1]},
         "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
         "autopilot_params": autopilot_params,
