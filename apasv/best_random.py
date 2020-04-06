@@ -7,31 +7,10 @@ import runautopilots
 
 SERIES = False  # really just for benchmarking
 DEBUG = False
-DEBUG_NUMS = [
-    173662545,
-    116250604,
-    29486111,
-    897267147,
-    715713926,
-    907379192,
-    442754188,
-    58084283,
-    536713798,
-    47405023,
-    371011323,
-    592871662,
-    27607438,
-    78367941,
-    968154253,
-    519373107,
-    343699182,
-    32231581,
-    95839546,
-    302718015,
-]
-CHUNK_SIZE = 5000
+DEBUG_NUMS = [0]
+CHUNK_SIZE = 10000
 NUM_PER_WORKER = 50
-TOTAL_RUN = int(1e7)
+TOTAL_RUN = int(1e8)
 NUM_BEST = 10
 RAND_SEED = 14
 MAX_SEED = int(1e9)
@@ -51,8 +30,8 @@ if __name__ == "__main__":
     class_params = {
         "boat_params": {},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-        "environment_params": {},
-        "fitness_params": {"gate_length": 1, "offline_importance": 0.5},
+        "environment_params": {"currents_data": "test"},
+        "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
         "autopilot_params": autopilot_params,
         "autopilot_type": "apnn",
@@ -63,7 +42,7 @@ if __name__ == "__main__":
         "num_substeps": 5,
         "do_visual": False,
         "visual_timestep": 0.001,
-        "cutoff_max_time": 1000,
+        "cutoff_max_time": 3000,
         "cutoff_time_gates_same_line": 10,
         "cutoff_time_gates_different_line": 30,
         "cutoff_thresh": [[5, 0.1]],

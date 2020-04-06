@@ -232,7 +232,7 @@ class simulator:
         current_y_pos = Y_POS
         self.visual.add_text_rect_data(
             pos=[X_POS, current_y_pos, LABEL_WIDTH + DATA_WIDTH, HEIGHT],
-            text_str="BOAT DATA",
+            text_str="BOAT DATA (" + self.autopilot.id + ")",
         )
         current_y_pos += HEIGHT
         for i in range(len(label_string)):
