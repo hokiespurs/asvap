@@ -40,32 +40,27 @@ def run_simulator(my_simulator, simulation_params):
         # check if loop_criteria is still valid
         # only check the next criteria if the previous one has been met
         boat_time = my_simulator.boat.time
-        is_gates_left = False
-        is_made_cutoffs = False
-        is_ap_not_complete = False
-        is_gate_time_gap_good = False
-        is_below_max_time = boat_time < simulation_params["cutoff_max_time"]
-        if not is_below_max_time:
+
+        # if boat is beyond cutoff time
+        if boat_time > simulation_params["cutoff_max_time"]:
             break
 
-        is_gates_left = not my_simulator.fitness.mission_complete
-
-        if not is_gates_left:
+        # if the boat has been through all the gates
+        if my_simulator.fitness.mission_complete:
             break
 
+        # if the autopilot thinks its finished the mission
+        if my_simulator.autopilot.mission_complete:
+            break
+
+        # if the boat missed a hard cutoff threshold
         is_made_cutoffs = check_cutoff_thresh(
             boat_time,
             was_cutoff_checked,
             my_simulator.get_fitness,
             simulation_params["cutoff_thresh"],
         )
-
         if not is_made_cutoffs:
-            break
-
-        is_ap_not_complete = not my_simulator.autopilot.mission_complete
-
-        if not is_ap_not_complete:
             break
 
         is_gate_time_gap_good = check_gate_time_gap(

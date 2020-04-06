@@ -9,22 +9,33 @@ import time
 import string
 import random
 
-START_SEED = [173662545, 371011323]
-NUM_TOP_KEEP = 5
-NUM_MUTATE_PER_TOP = 10
+START_SEEDS = [
+    782001020,
+    539399515,
+    420664562,
+    215660369,
+    278884683,
+    487096407,
+    171765187,
+    681186872,
+    705493984,
+    862059935,
+]
+NUM_TOP_KEEP = 10
+NUM_MUTATE_PER_TOP = 100
 MUTATE_PROBABILITY = 0.01
 MUTATE_DISTRIBUTION = "randn"
 MUTATE_SCALAR = 1
 
 NUM_PER_WORKER = 50
 RAND_SEED = 1
-SAVE_FOLDER = "./data/batchruns/genetic_test"
+SAVE_FOLDER = "./data/batchruns/genetic_test2"
 
-MAX_ITERATIONS = 5
+MAX_ITERATIONS = int(1e7)
 
 
-def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
-    return "".join(random.choice(chars) for _ in range(size))
+def id_generator(lastid="0", size=6, chars=string.ascii_uppercase + string.digits):
+    return lastid[0] + "-" + "".join(random.choice(chars) for _ in range(size))
 
 
 def mutate_autopilots(
@@ -41,7 +52,7 @@ def mutate_autopilots(
         )
         mutated_ap = deepcopy(ap_parent)
         mutated_ap.nn.set_nn_vector(mutated_dna)
-        mutated_ap.id = id_generator()
+        mutated_ap.id = id_generator(mutated_ap.id)
         mutated_autopilot_list.append(mutated_ap)
 
     return mutated_autopilot_list
@@ -49,7 +60,7 @@ def mutate_autopilots(
 
 if __name__ == "__main__":
     random_generator = np.random.default_rng(RAND_SEED)
-    MISSION_NAME = "./data/missions/increasingangle.txt"
+    MISSION_NAME = "./data/missions/straightout.txt"
     # autopilot parameters
     autopilot_params = {
         "num_neurons": [30, 30, 30],
@@ -62,7 +73,7 @@ if __name__ == "__main__":
     class_params = {
         "boat_params": {},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-        "environment_params": {"currents_data": [0.15, 0.1]},
+        "environment_params": {"currents_data": "test"},
         "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
         "autopilot_params": autopilot_params,
@@ -74,18 +85,24 @@ if __name__ == "__main__":
         "num_substeps": 5,
         "do_visual": False,
         "visual_timestep": 0.001,
-        "cutoff_max_time": 1000,
-        "cutoff_time_gates_same_line": 10,
+        "cutoff_max_time": 2000,
+        "cutoff_time_gates_same_line": 15,
         "cutoff_time_gates_different_line": 30,
-        "cutoff_thresh": [[5, 0.1]],
+        "cutoff_thresh": [[5, 0.1], [100, 0.1]],
     }
     # initiailze top autopilots
     my_mission = mission.mission(**class_params["mission_params"])
+    ap_names = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     top_ap = []
-    for i in START_SEED:
-        top_ap.append(
-            autopilot.ap_nn(my_mission.survey_lines, rand_seed=i, **autopilot_params)
+
+    for i, seed in enumerate(START_SEEDS):
+        new_ap = autopilot.ap_nn(
+            my_mission.survey_lines, rand_seed=seed, **autopilot_params
         )
+        new_ap.id = ap_names[i]
+        top_ap.append(new_ap)
+
+    og_top_ap = deepcopy(top_ap)
     # initiailze best list
     best_list = runautopilots.reset_best_simulations(NUM_TOP_KEEP)
 
@@ -97,7 +114,7 @@ if __name__ == "__main__":
     for run_num in range(MAX_ITERATIONS):
         t_start = time.time()
         # make new list of autopilots to test
-        all_autopilot_list = top_ap
+        all_autopilot_list = top_ap + og_top_ap
         for ap in top_ap:
             # mutate each of the top autopilots
             ap_list = mutate_autopilots(

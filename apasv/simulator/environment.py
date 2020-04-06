@@ -68,7 +68,11 @@ class environment:
 
 
 def currents_test(xy):
-    if xy[1] < 20:
+    if xy[1] < 0:
+        # strong currents increasing to 3m/s horizontal at -100
+        x_current = xy[1] / 100 * 1
+        return (x_current, 0)
+    elif xy[1] < 20:
         return (0, 0)
     elif xy[1] < 40:
         return (0.1, 0)

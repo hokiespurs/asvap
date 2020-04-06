@@ -6,7 +6,7 @@ from autopilot import autopilot
 
 # CONSTANTS
 THROTTLE_STEP = 5
-BOAT_TIMESTEP = 1
+BOAT_TIMESTEP = .1
 VISUAL_DELAY = 0.05
 
 key_list = {

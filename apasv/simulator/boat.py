@@ -22,7 +22,7 @@ class boat:
         friction_function=None,
         friction_function_rotation=None,
         max_num_history=100000,
-        do_history_of_updates=False,
+        do_history_of_updates=True,  # needed for backwards spinners
     ):
         # kinematics
         self.time = time
@@ -167,9 +167,18 @@ class boat:
 
     def _update_history_of_updates(self):
         # t,x,y,az,vx,vy,vaz,throttleL,throttleR
-        self.__history_of_updates[self.num_updates, :] = np.concatenate(
-            ([self.time], self.pos_vec, self.vel_world_vec, self.throttle)
-        )
+
+        self.__history_of_updates[self.num_updates, :] = [
+            self.time,
+            self.pos["x"],
+            self.pos["y"],
+            self.pos["az"],
+            self.vel_world["x"],
+            self.vel_world["y"],
+            self.vel_world["az"],
+            self.throttle[0],
+            self.throttle[1],
+        ]
         self.num_updates += 1
         if self.num_updates == self.max_num_history:
             self.num_updates = 0
@@ -403,7 +412,7 @@ if __name__ == "__main__":
             return (-0.5, 0)
 
     myboat = boat(pos=[0, 0, 90])
-
+    myboat.do_history_of_updates = True
     for t in range(14):
         if t == 1:
             myboat.throttle = [60, 80]
@@ -414,7 +423,7 @@ if __name__ == "__main__":
         elif t == 10:
             myboat.throttle = [10, 10]
 
-        myboat.update_position(1, 2, vel_water_function=watervelfun)
+        myboat.update_position(1, 5, vel_water_function=watervelfun)
 
     fig, ax = plt.subplots()
     myboat.plot_history_line(ax, line_color="k", line_width=3)

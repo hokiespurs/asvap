@@ -7,7 +7,28 @@ import runautopilots
 
 SERIES = False  # really just for benchmarking
 DEBUG = False
-DEBUG_NUMS = [0]
+DEBUG_NUMS = [
+    782001020,
+    539399515,
+    420664562,
+    215660369,
+    278884683,
+    487096407,
+    171765187,
+    681186872,
+    705493984,
+    862059935,
+    13326175,
+    691268289,
+    260955526,
+    986644454,
+    146062085,
+    46445214,
+    93070826,
+    870989753,
+    793935606,
+    331793824,
+]
 CHUNK_SIZE = 10000
 NUM_PER_WORKER = 50
 TOTAL_RUN = int(1e8)
@@ -42,10 +63,10 @@ if __name__ == "__main__":
         "num_substeps": 5,
         "do_visual": False,
         "visual_timestep": 0.001,
-        "cutoff_max_time": 3000,
-        "cutoff_time_gates_same_line": 10,
+        "cutoff_max_time": 2000,
+        "cutoff_time_gates_same_line": 15,
         "cutoff_time_gates_different_line": 30,
-        "cutoff_thresh": [[5, 0.1]],
+        "cutoff_thresh": [[5, 0.1], [100, 0.1]],
     }
 
     # initialize the random seed generator

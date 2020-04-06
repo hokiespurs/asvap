@@ -1,7 +1,8 @@
 import runautopilots
 
-SAVE_FOLDER = "./data/batchruns/second"
+# SAVE_FOLDER = "./data/batchruns/second"
 # SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_first_tests"
+SAVE_FOLDER = "./data/batchruns/genetic_test2"
 
 autopilot_list = runautopilots.load_autopilot_list(SAVE_FOLDER)
 
@@ -31,9 +32,9 @@ simulation_params = {
     "do_visual": True,
     "visual_timestep": 0.001,
     "cutoff_max_time": 2000,
-    "cutoff_time_gates_same_line": 10,
-    "cutoff_time_gates_different_line": 50,
-    "cutoff_thresh": [[5, 0.1]],
+    "cutoff_time_gates_same_line": 15,
+    "cutoff_time_gates_different_line": 30,
+    "cutoff_thresh": [[5, 0.1], [100, 0.1]],
 }
 # turn partials on
 for ap in autopilot_list:
