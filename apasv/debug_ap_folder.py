@@ -2,11 +2,11 @@ import runautopilots
 
 # SAVE_FOLDER = "./data/batchruns/second"
 # SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_first_tests"
-SAVE_FOLDER = "./data/batchruns/genetic_test2"
+SAVE_FOLDER = "./data/batchruns/foo"
 
 autopilot_list = runautopilots.load_autopilot_list(SAVE_FOLDER)
 
-MISSION_NAME = "./data/missions/straightout.txt"
+MISSION_NAME = "./data/missions/line.txt"
 # autopilot parameters
 autopilot_params = {
     "num_neurons": [30, 30, 30],
@@ -19,7 +19,7 @@ autopilot_params = {
 class_params = {
     "boat_params": {},
     "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-    "environment_params": {"currents_data": "test"},
+    "environment_params": {"currents_data": "line"},
     "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
     "display_params": {},
     "autopilot_params": autopilot_params,

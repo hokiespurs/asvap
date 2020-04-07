@@ -7,41 +7,20 @@ import runautopilots
 
 SERIES = False  # really just for benchmarking
 DEBUG = False
-DEBUG_NUMS = [
-    782001020,
-    539399515,
-    420664562,
-    215660369,
-    278884683,
-    487096407,
-    171765187,
-    681186872,
-    705493984,
-    862059935,
-    13326175,
-    691268289,
-    260955526,
-    986644454,
-    146062085,
-    46445214,
-    93070826,
-    870989753,
-    793935606,
-    331793824,
-]
+DEBUG_NUMS = [782001020]
 CHUNK_SIZE = 10000
 NUM_PER_WORKER = 50
 TOTAL_RUN = int(1e8)
 NUM_BEST = 10
 RAND_SEED = 14
 MAX_SEED = int(1e9)
-SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_second_tests"
+SAVE_FOLDER = "./data/batchruns/AP_30s30s_line_tests"
 
 if __name__ == "__main__":
-    MISSION_NAME = "./data/missions/straightout.txt"
+    MISSION_NAME = "./data/missions/line.txt"
     # autopilot parameters
     autopilot_params = {
-        "num_neurons": [30, 30, 30],
+        "num_neurons": [30, 30],
         "rand_weights_method": "randn",  # "rand","randn","randpm"
         "rand_weights_scalar": 1,
         "rand_biases_method": "randn",  # "rand","randn","randpm","zero"
@@ -51,7 +30,7 @@ if __name__ == "__main__":
     class_params = {
         "boat_params": {},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-        "environment_params": {"currents_data": "test"},
+        "environment_params": {"currents_data": "line"},
         "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
         "autopilot_params": autopilot_params,
