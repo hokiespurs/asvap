@@ -1,7 +1,7 @@
 from dask.distributed import Client
 from autopilot import autopilot, genetic
 from simulator import mission
-
+from datetime import datetime
 import numpy as np
 import runautopilots
 from copy import deepcopy
@@ -10,16 +10,16 @@ import string
 import random
 
 START_SEEDS = [
-    # 782001020,
-    539399515,
-    420664562,
-    215660369,
-    278884683,
-    487096407,
-    171765187,
-    681186872,
-    # 705493984,
-    862059935,
+    211478023,
+    576029257,
+    51788801,
+    813176530,
+    457325819,
+    765444478,
+    692363662,
+    393353213,
+    423721455,
+    162562018,
 ]
 NUM_TOP_KEEP = 10
 NUM_MUTATE_PER_TOP = 100
@@ -34,8 +34,12 @@ SAVE_FOLDER = "./data/batchruns/genetic_test2"
 MAX_ITERATIONS = int(1e7)
 
 
-def id_generator(lastid="0", size=6, chars=string.ascii_uppercase + string.digits):
-    return lastid[0] + "-" + "".join(random.choice(chars) for _ in range(size))
+def id_generator(lastid="0", size=4, chars=string.ascii_uppercase + string.digits):
+
+    time_str = datetime.now().strftime("%H%M")
+    return (
+        lastid[0] + "-" + "".join(random.choice(chars) for _ in range(size)) + time_str
+    )
 
 
 def mutate_autopilots(
@@ -60,10 +64,10 @@ def mutate_autopilots(
 
 if __name__ == "__main__":
     random_generator = np.random.default_rng(RAND_SEED)
-    MISSION_NAME = "./data/missions/straightout.txt"
+    MISSION_NAME = "./data/missions/line.txt"
     # autopilot parameters
     autopilot_params = {
-        "num_neurons": [30, 30, 30],
+        "num_neurons": [30, 30],
         "rand_weights_method": "randn",  # "rand","randn","randpm"
         "rand_weights_scalar": 1,
         "rand_biases_method": "randn",  # "rand","randn","randpm","zero"
@@ -73,7 +77,7 @@ if __name__ == "__main__":
     class_params = {
         "boat_params": {},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-        "environment_params": {"currents_data": "test"},
+        "environment_params": {"currents_data": "line"},
         "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
         "autopilot_params": autopilot_params,

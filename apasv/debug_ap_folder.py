@@ -2,7 +2,9 @@ import runautopilots
 
 # SAVE_FOLDER = "./data/batchruns/second"
 # SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_first_tests"
-SAVE_FOLDER = "./data/batchruns/foo"
+# SAVE_FOLDER = "./data/batchruns/foo"
+
+SAVE_FOLDER = "./data/batchruns/genetic_test2"
 
 autopilot_list = runautopilots.load_autopilot_list(SAVE_FOLDER)
 
