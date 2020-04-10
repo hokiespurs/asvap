@@ -144,6 +144,9 @@ class ap_nn(autopilot):
         rand_weights_scalar=1,
         rand_biases_method="rand",  # "rand","randn","randpm","zero"
         rand_biases_scalar=1,
+        output_type="default",
+        input_variables="11111111",
+        cur_throttle=[0, 0],
     ):
         super().__init__(survey_lines)
         self.old_data = {
@@ -173,6 +176,9 @@ class ap_nn(autopilot):
         )
         self.id = f"{rand_seed:10.0f}"
         self.do_partials = False
+        self.output_type = output_type
+        self.input_variables = input_variables
+        self.cur_throttle = np.array([0, 0])
 
     def new_random_seed(self, seed):
         self.old_data = {
@@ -237,7 +243,7 @@ class ap_nn(autopilot):
                 np.sin(daz),
                 az_vel / 90,
                 tanh(az_acc / 10),
-                tanh(d_speed / 3),
+                tanh(d_speed / 1),
                 tanh(downline_acc),
                 np.cos(boat_velocity_az_offline),
                 np.sin(boat_velocity_az_offline),
@@ -269,7 +275,7 @@ class ap_nn(autopilot):
                     np.sin(-daz),
                     -az_vel / 90,
                     tanh(-az_acc / 10),
-                    tanh(d_speed / 3),
+                    tanh(d_speed / 1),
                     tanh(downline_acc),
                     np.cos(-boat_velocity_az_offline),
                     np.sin(boat_velocity_az_offline),
@@ -304,17 +310,42 @@ class ap_nn(autopilot):
 
         return datavals, flipped_input
 
-    @staticmethod
-    def calc_nn_out_to_throttle(nn_out, flipped_input):
+    def calc_nn_out_to_throttle(self, nn_out, flipped_input):
         # standard way
-        throttle = 200 * (nn_out - 0.5)
+        if not hasattr(self, "output_type"):
+            self.output_type = "default"
 
-        # # [0] is throttle
-        # # [1] is turn amount
-        # total_fwd = 200 * (nn_out[0] - 0.5)
-        # L_throttle = total_fwd + 200 * (nn_out[1] - 0.5)
-        # R_throttle = total_fwd - 200 * (nn_out[1] - 0.5)
-        # throttle = [L_throttle, R_throttle]
+        if self.output_type == "default":
+            throttle = 200 * (nn_out - 0.5)
+            self.debug_autopilot_labels.append("NN Out Throttle L")
+            self.debug_autopilot_labels.append("NN Out Throttle R")
+        elif self.output_type == "turn_throttle":
+            # [0] is throttle
+            # [1] is turn amount
+            total_fwd = 200 * (nn_out[0] - 0.5)
+            L_throttle = total_fwd + 200 * (nn_out[1] - 0.5)
+            R_throttle = total_fwd - 200 * (nn_out[1] - 0.5)
+            throttle = [L_throttle, R_throttle]
+            self.debug_autopilot_labels.append("Throttle")
+            self.debug_autopilot_labels.append("Turn")
+        elif self.output_type == "delta_throttle":
+            delta_throttle = 10 * (nn_out - 0.5)
+
+            if flipped_input:
+                throttle = [
+                    self.cur_throttle[1] + delta_throttle[1],
+                    self.cur_throttle[0] + delta_throttle[0],
+                ]
+            else:
+                throttle = [
+                    self.cur_throttle[0] + delta_throttle[0],
+                    self.cur_throttle[1] + delta_throttle[1],
+                ]
+            self.debug_autopilot_labels.append("Delta Throttle L")
+            self.debug_autopilot_labels.append("Delta Throttle R")
+
+        throttle = np.array(throttle)
+
         if flipped_input:
             return np.flipud(throttle)
         else:
@@ -348,9 +379,6 @@ class ap_nn(autopilot):
             all_partials.append(None)
             self.debug_autopilot_partials = all_partials
 
-            self.debug_autopilot_labels.append("NN Out Throttle L")
-            self.debug_autopilot_labels.append("NN Out Throttle R")
-
             self.debug_autopilot_label_data = np.vstack(
                 (
                     self.debug_autopilot_label_data,
@@ -360,7 +388,13 @@ class ap_nn(autopilot):
             )
 
         throttle = self.calc_nn_out_to_throttle(nn_outputs, flipped_input)
-        return self.limit_throttle(throttle)
+        self.cur_throttle = self.limit_throttle(throttle)
+        return self.cur_throttle
+
+    def reset(self):
+        self.mission_complete = False
+        self.current_line = 0
+        self.cur_throttle = np.array([0, 0])
 
 
 class ap_shell(autopilot):

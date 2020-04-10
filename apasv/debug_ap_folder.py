@@ -3,23 +3,25 @@ import runautopilots
 # SAVE_FOLDER = "./data/batchruns/second"
 # SAVE_FOLDER = "./data/batchruns/AP_30s30s30s_first_tests"
 # SAVE_FOLDER = "./data/batchruns/foo"
-
-SAVE_FOLDER = "./data/batchruns/genetic_test2"
+# TODO Change scripts so they can be batch run (either command line or other script)
+# SAVE_FOLDER = "./data/batchruns/genetic_test2"
+SAVE_FOLDER = "./data/batchruns/AP_30s30s_line_delta_throttle"
 
 autopilot_list = runautopilots.load_autopilot_list(SAVE_FOLDER)
 
 MISSION_NAME = "./data/missions/line.txt"
 # autopilot parameters
 autopilot_params = {
-    "num_neurons": [30, 30, 30],
+    "num_neurons": [20, 20, 20],
     "rand_weights_method": "randn",  # "rand","randn","randpm"
     "rand_weights_scalar": 1,
     "rand_biases_method": "randn",  # "rand","randn","randpm","zero"
     "rand_biases_scalar": 1,
+    "output_type": "delta_throttle",
 }
 # class parameters for simulation
 class_params = {
-    "boat_params": {},
+    "boat_params": {"pos": [0, 0, 10]},
     "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
     "environment_params": {"currents_data": "line"},
     "fitness_params": {"gate_length": 1, "offline_importance": 0.8},

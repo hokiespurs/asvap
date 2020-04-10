@@ -9,6 +9,9 @@ import time
 import string
 import random
 
+
+# TODO Run each seed until it stops increasing fro N iterations
+# TODO Making training dataset based on manual driving
 START_SEEDS = [
     211478023,
     576029257,
@@ -52,7 +55,7 @@ def mutate_autopilots(
     for _ in range(num_mutations):
         dna = ap_parent.nn.get_nn_vector()
         mutated_dna = genetic.random_mutation(
-            dna, probability, distribution, scalar, random_generator
+            dna, random_generator, probability, distribution, scalar
         )
         mutated_ap = deepcopy(ap_parent)
         mutated_ap.nn.set_nn_vector(mutated_dna)

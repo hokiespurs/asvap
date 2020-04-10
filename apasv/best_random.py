@@ -7,31 +7,32 @@ import runautopilots
 
 SERIES = False  # really just for benchmarking
 DEBUG = False
-DEBUG_NUMS = [782001020]
+DEBUG_NUMS = [552622169, 293997815]
 CHUNK_SIZE = 10000
 NUM_PER_WORKER = 50
 TOTAL_RUN = int(1e8)
 NUM_BEST = 10
 RAND_SEED = 14
 MAX_SEED = int(1e9)
-SAVE_FOLDER = "./data/batchruns/AP_30s30s_line_tests"
+SAVE_FOLDER = "./data/batchruns/AP_30s30s_line_delta_throttle"
 
 if __name__ == "__main__":
     MISSION_NAME = "./data/missions/line.txt"
     # autopilot parameters
     autopilot_params = {
-        "num_neurons": [30, 30],
+        "num_neurons": [30, 30, 30],
         "rand_weights_method": "randn",  # "rand","randn","randpm"
         "rand_weights_scalar": 1,
         "rand_biases_method": "randn",  # "rand","randn","randpm","zero"
         "rand_biases_scalar": 1,
+        "output_type": "delta_throttle",
     }
     # class parameters for simulation
     class_params = {
-        "boat_params": {},
+        "boat_params": {"pos": [0, 0, 10]},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
         "environment_params": {"currents_data": "line"},
-        "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
+        "fitness_params": {"gate_length": 1, "offline_importance": 0.1},
         "display_params": {},
         "autopilot_params": autopilot_params,
         "autopilot_type": "apnn",

@@ -17,8 +17,7 @@ class simulator:
         self.boat.reset()
         self.fitness.reset()
         self.autopilot.survey_lines = self.fitness.mission.survey_lines
-        self.autopilot.mission_complete = False
-        self.autopilot.current_line = 0
+        self.autopilot.reset()
 
     def get_fitness(self):
         """ Get the fitness of the boat on the mission """

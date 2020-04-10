@@ -1,12 +1,18 @@
 import numpy as np
 from copy import copy
 
-# TODO other mutation types
 # TODO other missions with current
 # TODO different autopilots
 
 
-def random_mutation(vec, probability, distribution, scalar, random_generator):
+def random_mutation(
+    vec,
+    random_generator,
+    probability=0.1,
+    distribution="randn",
+    scalar=1,
+    mutate_type="replace",
+):
     """ replace random cells """
     new_vec = copy(vec)
     num_vals = len(vec)
@@ -19,8 +25,16 @@ def random_mutation(vec, probability, distribution, scalar, random_generator):
         new_vals = get_random_vals(
             distribution, 1, num_to_mutate, rng=random_generator, scalar=scalar
         )
-
-        new_vec[np.squeeze(is_mutated)] = np.squeeze(new_vals)
+        if mutate_type == "zero":
+            new_vec[np.squeeze(is_mutated)] = 0
+        elif mutate_type == "sum":
+            new_vec[np.squeeze(is_mutated)] += np.squeeze(new_vals)
+        elif mutate_type == "multiply":
+            new_vec[np.squeeze(is_mutated)] *= np.squeeze(new_vals)
+        elif mutate_type == "replace":
+            new_vec[np.squeeze(is_mutated)] = np.squeeze(new_vals)
+        else:
+            raise Exception("unknown mutation type")
 
     return new_vec
 

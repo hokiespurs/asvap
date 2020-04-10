@@ -231,7 +231,10 @@ class fitness:
             )
             ind_gate_offline = np.abs(offline_pos) < current_gate["max_offline"]
             ind_in_gate = np.bitwise_and(in_gate_downline, ind_gate_offline)
-
+            # get indices of when speed is good
+            d_downline_vel = downline_vel - current_gate["goal_speed"]
+            ind_good_vel = np.abs(d_downline_vel) < 3 * current_gate["speed_error_std"]
+            ind_in_gate = np.bitwise_and(ind_in_gate, ind_good_vel)
             # update fitness for all in the gate
             if any(ind_in_gate):
                 self.update_fitness_gate(
