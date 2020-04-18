@@ -5,8 +5,7 @@ import runautopilots
 # SAVE_FOLDER = "./data/batchruns/foo"
 # TODO Change scripts so they can be batch run (either command line or other script)
 # SAVE_FOLDER = "./data/batchruns/genetic_test2"
-SAVE_FOLDER = "./data/batchruns/AP_30s30s_line_delta_throttle"
-
+SAVE_FOLDER = "./data/batchruns/foo"
 autopilot_list = runautopilots.load_autopilot_list(SAVE_FOLDER)
 
 MISSION_NAME = "./data/missions/line.txt"
@@ -21,7 +20,7 @@ autopilot_params = {
 }
 # class parameters for simulation
 class_params = {
-    "boat_params": {"pos": [0, 0, 10]},
+    "boat_params": {"pos": [0, 0, 0]},
     "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
     "environment_params": {"currents_data": "line"},
     "fitness_params": {"gate_length": 1, "offline_importance": 0.8},

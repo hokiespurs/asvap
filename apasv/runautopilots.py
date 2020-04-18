@@ -272,7 +272,7 @@ def print_best_runs(best_runs, filename=None):
     headerstr = (
         "       RANK | FITNESS | PER GATE |  OFF FIT |"
         + "  VEL FIT | % COMPLETE | BOAT TIME |"
-        + "         SEED |        DATETIME | CPU TIME"
+        + "        DATETIME | CPU TIME |          SEED |"
     )
     if filename is None:
         # clear screen
@@ -302,9 +302,9 @@ def print_individual_run(data, docr=True, rank=0, file_handle=None):
         + f"{data['mean_velocity_fitness']:9.2f} |"
         + f"{data['percent_complete']:11.1f} |"
         + f"{data['boat_time']:10.1f} |"
-        + f"{data['id']:>13s} |"
         + f"{tstr:>16s} |"
-        + f"{data['run_time']:9.3f}"
+        + f"{data['run_time']:9.3f} |"
+        + f"{data['id']:>14s} |"
     )
     if file_handle is None:
         if docr:

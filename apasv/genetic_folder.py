@@ -1,6 +1,7 @@
 from dask.distributed import Client
-from autopilot import autopilot, genetic
-from simulator import mission
+from autopilot import genetic
+
+# from simulator import mission
 from datetime import datetime
 import numpy as np
 import runautopilots
@@ -10,25 +11,23 @@ import string
 import random
 from pathlib import Path
 
-AP_FOLDER = "./data/batchruns/AP_30s30s_line_delta_throttle"
-
+AP_FOLDER = "./data/batchruns/AP_30s30s30s_line_tests"
 NUM_TOP_KEEP = 10
-NUM_MUTATE_PER_TOP = 100
-
+NUM_MUTATE_PER_TOP = 50
+NUM_PER_WORKER = 10
+RAND_SEED = 1
+MAX_ITERATIONS = int(1e7)
+MISSION_NAME = "./data/missions/line.txt"
+FITNESS_INCREASE_THRESH = 1
+NUM_FITNESS_INCREASE_FAIL_BEFORE_BREAK = 3
 MUTATE_PARAMS = [
     [
         {"probability": 0.01, "distribution": "randn", "mutate_type": "replace"},
         {"probability": 0.01, "distribution": "randn", "mutate_type": "sum"},
         {"probability": 0.01, "distribution": "randn", "mutate_type": "zero"},
-    ][
-        {"probability": 0.01, "distribution": "randn", "mutate_type": "zero"},
-    ]
+    ],
+    [{"probability": 0.01, "distribution": "randn", "mutate_type": "zero"}],
 ]
-
-NUM_PER_WORKER = 50
-RAND_SEED = 1
-
-MAX_ITERATIONS = int(1e7)
 
 
 def id_generator(lastid="0", size=4, chars=string.ascii_uppercase + string.digits):
@@ -58,9 +57,6 @@ def mutate_autopilots(ap_parent, num_mutations, random_generator):
 
 if __name__ == "__main__":
     random_generator = np.random.default_rng(RAND_SEED)
-    MISSION_NAME = "./data/missions/line.txt"
-    # autopilot parameters
-    autopilot_params = {}
     # class parameters for simulation
     class_params = {
         "boat_params": {},
@@ -68,7 +64,7 @@ if __name__ == "__main__":
         "environment_params": {"currents_data": "line"},
         "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
         "display_params": {},
-        "autopilot_params": autopilot_params,
+        "autopilot_params": {},
         "autopilot_type": "genetic",
     }
     # simulation parameters
@@ -87,18 +83,21 @@ if __name__ == "__main__":
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     # read autopilot list from folder
     autopilot_list = runautopilots.load_autopilot_list(AP_FOLDER)
-
+    # Start parallel processing
+    client = Client()
     # initiailze top autopilots
-    for ap in autopilot_list:
+    id_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    best_of_best = []
+    for ap_num, ap in enumerate(autopilot_list):
+        ap.id = id_str[ap_num]
         top_ap = [ap]
         # initiailze best list
         best_list = runautopilots.reset_best_simulations(NUM_TOP_KEEP)
 
-        # Start parallel processing
-        client = Client()
-
         total_runs = 0
         t_start_all = time.time()
+        last_fitness = 0
+        num_fitness_increase_fail = 0
         for run_num in range(MAX_ITERATIONS):
             t_start = time.time()
             # make new list of autopilots to test
@@ -127,12 +126,24 @@ if __name__ == "__main__":
             # get the top N
             top_ap = [all_autopilot_list[i] for i in top_inds]
 
+            # get the  best fitness
+            top_fitness = sorted_runs[-1][1]["fitness"]
+            # compare the mean best fitness with past best fitness
+            # if not getting better by a threshold add n to bad counter
+            dfitness = top_fitness - last_fitness
+            last_fitness = top_fitness
+            if dfitness < FITNESS_INCREASE_THRESH:
+                num_fitness_increase_fail += 1
+            else:
+                num_fitness_increase_fail = 0
+
             # print the top N
             best_list = runautopilots.update_best_simulations(
                 new_runs, num_bests=NUM_TOP_KEEP
             )
             runautopilots.print_best_runs(best_list)
             print(f"iteration:{run_num+1}")
+            print(f"Boat {ap_num:.0f} / {len(autopilot_list):.0f}")
             total_runs += len(sorted_runs)
             t_per_boat = (time.time() - t_start) / len(sorted_runs)
             tstr = runautopilots.timer_str(t_start, time.time())
@@ -140,9 +151,46 @@ if __name__ == "__main__":
             t_per_boat = (time.time() - t_start_all) / total_runs
             tstr = runautopilots.timer_str(t_start_all, time.time())
             print(f"{total_runs:,.0f} in {tstr} [{t_per_boat:.3f}]")
+            print(
+                f"Fitness increase: {dfitness:.2f} , "
+                + f"({num_fitness_increase_fail:.0f} < "
+                + f"{NUM_FITNESS_INCREASE_FAIL_BEFORE_BREAK:.0f})"
+            )
             # save the top N
-            runautopilots.save_autopilot_list(top_ap, SAVE_FOLDER)
-            runautopilots.print_best_runs(best_list, SAVE_FOLDER + "/top.txt")
+            save_subdir = f"{ap_num:03.0f}"
+            runautopilots.save_autopilot_list(top_ap, save_dir + "/" + save_subdir)
+            runautopilots.print_best_runs(
+                best_list, save_dir + "/" + save_subdir + "/top.txt"
+            )
 
-        # http://localhost:8787/status
-        # TODO profile for speed, why so much slower than random boats
+            # if bad counter > thresh, break loop and go to next one
+            if num_fitness_increase_fail == NUM_FITNESS_INCREASE_FAIL_BEFORE_BREAK:
+                break
+        # append best to the best of the best list
+        top_ap[0].id += f"-{run_num:.0f}"
+        best_of_best.append(top_ap[0])
+
+        # run each of the best simulations
+        best_runs = runautopilots.run_autopilots_parallel(
+            class_params,
+            simulation_params,
+            best_of_best,
+            client,
+            num_per_worker=NUM_PER_WORKER,
+        )
+        # Sort the best of the best
+        sorted_runs = sorted(enumerate(best_runs), key=lambda x: x[1]["fitness"])
+        top_inds = []
+        for i in range(len(sorted_runs)):
+            top_inds.append(sorted_runs[-i][0])
+
+        # print the best of the best
+        best_list = runautopilots.update_best_simulations(
+            best_runs, num_bests=NUM_TOP_KEEP
+        )
+        runautopilots.print_best_runs(best_list)
+        runautopilots.print_best_runs(best_list, save_dir + "/top.txt")
+        # save best of the best
+        runautopilots.save_autopilot_list(best_of_best, save_dir)
+    # http://localhost:8787/status
+    print("Done")
