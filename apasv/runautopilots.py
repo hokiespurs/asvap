@@ -14,18 +14,16 @@ import glob
 # sys.path.insert(0, "../autopilot")
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
+# TODO add framework for "gate check"
+# if a boat is not on track to make the top N, stop the simulation
+
 
 def run_simulator(my_simulator, simulation_params):
     t_start_simulation = time.time()
     was_cutoff_checked = [False] * len(simulation_params["cutoff_thresh"])
     loop_criteria = True
-    # print("--------")
-    # print(my_simulator.autopilot.id)
-    # print(my_simulator.autopilot.nn.biases[0][0])
-    # print(my_simulator.autopilot.nn.weights[0][0][3])
 
     while loop_criteria:
-        # print(my_simulator.boat.pos["y"])
         # get autopilot info and move the boat
         boat_data = my_simulator.get_boat_data()
         new_throttle = my_simulator.autopilot.calc_boat_throttle(boat_data)

@@ -11,22 +11,26 @@ import string
 import random
 from pathlib import Path
 
-AP_FOLDER = "./data/batchruns/AP_30s30s30s_line_tests"
+AP_FOLDER = "./data/batchruns/AP_no_currents"
 NUM_TOP_KEEP = 10
 NUM_MUTATE_PER_TOP = 50
 NUM_PER_WORKER = 10
 RAND_SEED = 1
 MAX_ITERATIONS = int(1e7)
-MISSION_NAME = "./data/missions/line.txt"
+MISSION_NAME = "./data/missions/increasingangle.txt"
+MISSION_CURRENTS = None
+OFFLINE_IMPORTANCE = 0.2
 FITNESS_INCREASE_THRESH = 1
 NUM_FITNESS_INCREASE_FAIL_BEFORE_BREAK = 3
 MUTATE_PARAMS = [
-    [
-        {"probability": 0.01, "distribution": "randn", "mutate_type": "replace"},
-        {"probability": 0.01, "distribution": "randn", "mutate_type": "sum"},
-        {"probability": 0.01, "distribution": "randn", "mutate_type": "zero"},
-    ],
     [{"probability": 0.01, "distribution": "randn", "mutate_type": "zero"}],
+    [{"probability": 0.01, "distribution": "randn", "mutate_type": "sum"}],
+    [{"probability": 0.01, "distribution": "randn", "mutate_type": "replace"}],
+    [
+        {"probability": 0.005, "distribution": "randn", "mutate_type": "replace"},
+        {"probability": 0.005, "distribution": "randn", "mutate_type": "sum"},
+        {"probability": 0.005, "distribution": "randn", "mutate_type": "zero"},
+    ],
 ]
 
 
@@ -43,13 +47,19 @@ def mutate_autopilots(ap_parent, num_mutations, random_generator):
     mutated_autopilot_list = []
     dna = ap_parent.nn.get_nn_vector()
     for _ in range(NUM_MUTATE_PER_TOP):
-        for params in MUTATE_PARAMS:
+        for i, params in enumerate(MUTATE_PARAMS):
             ap_dna = dna
             for param in params:
                 ap_dna = genetic.random_mutation(ap_dna, random_generator, **param)
             mutated_ap = deepcopy(ap_parent)
             mutated_ap.nn.set_nn_vector(ap_dna)
-            mutated_ap.id = id_generator(mutated_ap.id)
+            # make id count the number of each mutation
+            start_ind = 2 + i * 4
+            end_ind = 2 + i * 4 + 3
+            n = int(mutated_ap.id[start_ind:end_ind])
+            mutated_ap.id = (
+                mutated_ap.id[0:start_ind] + f"{n+1:03.0f}" + mutated_ap.id[end_ind:]
+            )
             mutated_autopilot_list.append(mutated_ap)
 
     return mutated_autopilot_list
@@ -61,8 +71,8 @@ if __name__ == "__main__":
     class_params = {
         "boat_params": {},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-        "environment_params": {"currents_data": "line"},
-        "fitness_params": {"gate_length": 1, "offline_importance": 0.8},
+        "environment_params": {"currents_data": MISSION_NAME},
+        "fitness_params": {"gate_length": 1, "offline_importance": OFFLINE_IMPORTANCE},
         "display_params": {},
         "autopilot_params": {},
         "autopilot_type": "genetic",
@@ -89,7 +99,7 @@ if __name__ == "__main__":
     id_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     best_of_best = []
     for ap_num, ap in enumerate(autopilot_list):
-        ap.id = id_str[ap_num]
+        ap.id = id_str[ap_num] + "-000" * len(MUTATE_PARAMS)
         top_ap = [ap]
         # initiailze best list
         best_list = runautopilots.reset_best_simulations(NUM_TOP_KEEP)

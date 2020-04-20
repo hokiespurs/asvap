@@ -14,10 +14,12 @@ TOTAL_RUN = int(1e8)
 NUM_BEST = 10
 RAND_SEED = 14
 MAX_SEED = int(1e9)
-SAVE_FOLDER = "./data/batchruns/AP_30s30s_line_delta_throttle"
+MISSION_NAME = "./data/missions/increasingangle.txt"
+MISSION_CURRENTS = None
+OFFLINE_IMPORTANCE = 0.2
+SAVE_FOLDER = "./data/batchruns/AP_dThrottle_nocurrent_increasingangle"
 
 if __name__ == "__main__":
-    MISSION_NAME = "./data/missions/line.txt"
     # autopilot parameters
     autopilot_params = {
         "num_neurons": [30, 30, 30],
@@ -31,8 +33,8 @@ if __name__ == "__main__":
     class_params = {
         "boat_params": {"pos": [0, 0, 10]},
         "mission_params": {"survey_line_filename": MISSION_NAME, "flip_x": False},
-        "environment_params": {"currents_data": "line"},
-        "fitness_params": {"gate_length": 1, "offline_importance": 0.1},
+        "environment_params": {"currents_data": MISSION_CURRENTS},
+        "fitness_params": {"gate_length": 1, "offline_importance": OFFLINE_IMPORTANCE},
         "display_params": {},
         "autopilot_params": autopilot_params,
         "autopilot_type": "apnn",
